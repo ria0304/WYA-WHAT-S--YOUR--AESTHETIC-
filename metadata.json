@@ -1,0 +1,8 @@
+{
+  "name": "WYA - What's Your Aesthetic",
+  "description": "An AI-powered fashion companion featuring a digital wardrobe, sustainable brand scoring, and personalized style DNA mapping.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
