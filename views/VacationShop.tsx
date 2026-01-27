@@ -133,10 +133,10 @@ const VacationShop: React.FC = () => {
               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                 <Briefcase className="w-4 h-4" /> Packing List
               </h3>
-              <ul className="space-y-2">
+              <ul className="grid grid-cols-2 gap-2">
                 {(result.packing_list || []).map((item: string, i: number) => (
-                  <li key={i} className="flex items-center gap-3 text-xs text-slate-700 font-bold bg-white p-3 rounded-xl border border-indigo-50 shadow-sm">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <li key={i} className="flex items-center gap-2 text-[10px] text-slate-700 font-bold bg-white p-3 rounded-xl border border-indigo-50 shadow-sm leading-tight">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
                     {item}
                   </li>
                 ))}
