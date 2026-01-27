@@ -116,37 +116,35 @@ class LocalComputerVision:
 
     def analyze_shape(self, image: np.ndarray, dominant_color: Tuple[int, int, int] = None) -> str:
         """
-        Granular shape analysis distinguishing:
-        - Specific Jewellery (Necklace, Ring, Watch, Earrings)
-        - Bags
-        - Jeans vs Trousers
-        - Tops vs Dresses
+        Refined shape analysis to distinguish Tops from Bags using shoulder width logic.
         """
         import cv2 # Deferred import
 
-        # 1. SEGMENTATION STRATEGY
+        # 1. SEGMENTATION STRATEGY (Otsu)
         mask = None
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         
         if dominant_color:
-            # Convert dominant RGB to HSV
             dom_hsv_pixel = cv2.cvtColor(np.uint8([[dominant_color]]), cv2.COLOR_RGB2HSV)[0][0]
             hsv_img = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
             
             if dominant_color[0] > 230 and dominant_color[1] > 230 and dominant_color[2] > 230:
-                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                _, mask = cv2.threshold(gray, 230, 255, cv2.THRESH_BINARY_INV)
+                 _, mask = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
             else:
                 hue = dom_hsv_pixel[0]
-                lower = np.array([max(0, hue-25), 20, 20])
-                upper = np.array([min(180, hue+25), 255, 255])
+                lower = np.array([max(0, hue-30), 20, 20])
+                upper = np.array([min(180, hue+30), 255, 255])
                 mask = cv2.inRange(hsv_img, lower, upper)
-                
-                kernel = np.ones((5,5), np.uint8)
-                mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-                mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+                if cv2.countNonZero(mask) < (image.shape[0] * image.shape[1] * 0.05):
+                     _, mask = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
         else:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            _, mask = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
+             _, mask = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+        # Cleanup
+        kernel = np.ones((5,5), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
         # 2. CONTOUR ANALYSIS
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -170,89 +168,76 @@ class LocalComputerVision:
         roi_mask = np.zeros_like(mask)
         cv2.drawContours(roi_mask, [largest], -1, 255, -1)
 
-        # --- A. JEWELLERY & WATCH DETECTION ---
-        # Logic: Small relative size, specific solidity profiles
-        if relative_area < 0.25: 
-            # 1. Chains / Necklaces (Low solidity due to loops/holes)
-            if solidity < 0.65:
-                return "Necklace"
-            
-            # 2. Watches (Strap shape or Circular face)
-            # Long and thin (strap) OR very solid circle
-            if aspect_ratio > 2.5 or aspect_ratio < 0.4:
-                return "Watch"
-            
-            # 3. Rings (Small, solid, roughly square bounding box)
+        # --- A. JEWELLERY & SMALL ITEMS ---
+        if relative_area < 0.15: 
+            if solidity < 0.65: return "Necklace"
+            if aspect_ratio > 2.5 or aspect_ratio < 0.4: return "Watch"
             if 0.8 < aspect_ratio < 1.2 and solidity > 0.85:
-                # If it's REALLY tiny, it's an earring
                 if relative_area < 0.05: return "Earrings"
                 return "Ring"
-            
-            # 4. Earrings (Default for very small things)
-            if relative_area < 0.08:
-                return "Earrings"
-            
-            # 5. Small Bags / Clutches
-            if solidity > 0.9 and 1.0 < aspect_ratio < 1.8:
-                return "Bag"
-                
-            return "Jewellery"
+            return "Earrings"
 
-        # --- B. BAG DETECTION (Larger Items) ---
-        # Bags are blocky (high solidity), often with a handle gap at top
-        if 0.6 < aspect_ratio < 1.8 and solidity > 0.8:
-            # Check for handle (hole in top center)
-            # Create a sub-mask for the top 30% of the bounding rect
-            handle_region = roi_mask[y:y+int(h*0.3), x+int(w*0.3):x+int(w*0.7)]
-            if cv2.countNonZero(handle_region) < (handle_region.size * 0.5):
-                return "Bag"
-            
-            # If very blocky, likely a tote
-            if solidity > 0.92:
-                return "Bag"
-
-        # --- C. CLOTHING ANALYSIS ---
+        # --- B. CLOTHING vs BAG LOGIC ---
         
-        # 1. Waistband Check (Bottoms)
-        waist_roi = roi_mask[y:y+int(h*0.1), x:x+w]
-        waist_fill = cv2.countNonZero(waist_roi) / (waist_roi.size + 1)
-        has_flat_waistband = waist_fill > 0.85
+        # Measure Width at "Shoulders" (Top 20%)
+        shoulder_y = y + int(h * 0.2)
+        if shoulder_y >= roi_mask.shape[0]: shoulder_y = roi_mask.shape[0] - 1
+        shoulder_row = roi_mask[shoulder_y, x:x+w]
+        shoulder_fill = cv2.countNonZero(shoulder_row) / w if w > 0 else 0
         
-        # 2. Neckline Check (Tops/Dresses)
-        neck_roi = roi_mask[y:y+int(h*0.15), x+int(w*0.35):x+int(w*0.65)]
-        neck_fill = cv2.countNonZero(neck_roi) / (neck_roi.size + 1)
-        has_neckline = neck_fill < 0.6
+        # Measure Width at "Legs/Hem" (Bottom 85%)
+        bottom_y = y + int(h * 0.85)
+        if bottom_y >= roi_mask.shape[0]: bottom_y = roi_mask.shape[0] - 1
+        bottom_row = roi_mask[bottom_y, x:x+w]
+        bottom_fill = cv2.countNonZero(bottom_row) / w if w > 0 else 0
         
-        # 3. Leg Gap Check (Trousers/Shorts/Jeans)
-        # Scan bottom 30% center
+        # Check for Leg Gap (Bottom center)
         crotch_roi = roi_mask[y+int(h*0.6):y+h, x+int(w*0.4):x+int(w*0.6)]
-        crotch_fill = cv2.countNonZero(crotch_roi) / (crotch_roi.size + 1)
-        has_leg_gap = crotch_fill < 0.4
+        crotch_fill = cv2.countNonZero(crotch_roi) / crotch_roi.size if crotch_roi.size > 0 else 1
+        has_leg_gap = crotch_fill < 0.6
 
-        # --- CLASSIFICATION TREE ---
+        # --- DECISION TREE ---
+
+        # 1. BOTTOMS (Pants/Shorts/Skirts)
+        if has_leg_gap:
+            if aspect_ratio < 0.8: return "Trousers"
+            return "Shorts"
         
-        if has_flat_waistband and not has_neckline:
-            # IT IS A BOTTOM
-            if has_leg_gap:
-                if aspect_ratio < 0.8: return "Trousers" # Tall > Wide
-                return "Shorts"
-            
-            # No gap, could be skirt or skinny jeans
-            # If very tall (Aspect Ratio < 0.5 i.e. H > 2W), likely pants/jeans
-            if aspect_ratio < 0.5: return "Jeans" # Default to Jeans for skinny pants
-            
-            return "Skirt"
-            
-        elif has_neckline:
-            # IT IS A TOP OR DRESS
-            # If tall (H > 1.4W -> AR < 0.7) -> Dress
-            if aspect_ratio < 0.7: return "Dress"
-            return "Top"
+        # 2. TOP vs BAG DISCRIMINATION
+        # Tops generally have broad shoulders (high shoulder_fill).
+        # Bags generally have handles (low shoulder_fill due to gaps) OR are boxy.
         
-        # Fallback based on dimensions
-        if aspect_ratio < 0.4: return "Trousers"
-        if aspect_ratio < 0.75: return "Dress"
+        if shoulder_fill > 0.8:
+            # Broad top -> Likely Clothing
+            if aspect_ratio < 0.6: return "Trousers" # Skinny fit / folded
+            if aspect_ratio < 0.8: return "Dress"
+            return "Top" # Default for broad shoulder items (T-Shirts, Sweaters)
+            
+        # If shoulder_fill is low/moderate (straps or tapered neck):
+        # Could be Tank Top, Dress, or Bag.
         
+        # Check Solidity: Bags are extremely solid (rectangles). Tops have curves.
+        # Check Aspect Ratio: Bags are often wider (Landscape).
+        
+        is_very_solid = solidity > 0.95
+        is_landscape = aspect_ratio > 1.2
+        
+        if is_very_solid and is_landscape:
+            return "Bag" # Clutch / Rectangular Bag
+            
+        if aspect_ratio > 1.5:
+             # Very wide -> Bag
+             return "Bag"
+             
+        # Fallback: Bias towards Top for typical wardrobe items unless clear handle gap logic applies
+        # Real bags usually have handle gaps that are very clear (low fill in top center).
+        handle_roi = roi_mask[y:y+int(h*0.25), x+int(w*0.3):x+int(w*0.7)]
+        handle_fill = cv2.countNonZero(handle_roi) / handle_roi.size if handle_roi.size > 0 else 1
+        
+        if handle_fill < 0.4 and is_very_solid:
+             return "Bag" # Tote with handle
+             
+        # Default to Top for ambiguous items (Folded shirts often look like blocks but not perfect rectangles)
         return "Top"
 
     def analyze_texture_properties(self, image: np.ndarray) -> Dict[str, float]:
@@ -275,6 +260,12 @@ class FabricClassifier:
     @staticmethod
     def classify(variance: float, brightness: float, color: str, category: str) -> str:
         
+        # 1. IMMEDIATE DENIM OVERRIDE
+        denim_colors = ["Denim", "Light Denim", "Navy", "Blue", "Charcoal", "Ice Blue", "Gray", "Black", "Light Blue", "Royal Blue", "Sky Blue", "Slate", "Indigo", "Midnight Navy"]
+        if color in denim_colors:
+             if variance > 100 or "Denim" in color:
+                 return "Denim"
+
         # --- ACCESSORIES & JEWELRY ---
         if category in ["Necklace", "Ring", "Earrings", "Watch", "Jewellery"]:
             if color in ["Gold", "Yellow", "Orange", "Beige", "Cream"]: return "Gold"
@@ -287,12 +278,9 @@ class FabricClassifier:
              if variance > 300: return "Canvas"
              return "Synthetic"
 
-        # --- JEANS DETECTION (Crucial Override) ---
-        denim_colors = ["Denim", "Light Denim", "Navy", "Blue", "Charcoal", "Ice Blue", "Gray", "Black", "Light Blue", "Royal Blue", "Sky Blue", "Slate", "Indigo"]
-        
+        # --- JEANS DETECTION ---
         if category in ["Trousers", "Jeans", "Shorts", "Skirt", "Bottom"]:
              if color in denim_colors:
-                 # Broad acceptance for Denim to ensure Jeans are caught
                  return "Denim"
 
         # --- CLOTHING FABRICS ---
@@ -302,6 +290,8 @@ class FabricClassifier:
             return "Wool"
 
         if color in ["Black", "Brown", "Camel", "Tan"] and variance < 100:
+            # If it's a Top, avoid calling it Leather unless very shiny (brightness)
+            if category == "Top": return "Cotton" 
             return "Leather"
 
         if 300 < variance < 700 and color in ["White", "Beige", "Cream", "Olive"]:
@@ -335,13 +325,16 @@ class FashionAIModel:
                 category=category
             )
             
-            # --- SMART CATEGORY REFINEMENT ---
+            # --- SMART CATEGORY CORRECTION ---
             final_category = category
             final_name_prefix = ""
 
-            # 1. JEANS: If it looks like Trousers and is Denim -> Jeans
-            if "Denim" in fabric:
-                if category == "Trousers": 
+            # 1. JEANS CORRECTION
+            if fabric == "Denim":
+                if category in ["Necklace", "Ring", "Earrings", "Watch", "Jewellery", "Accessory", "Metal", "Bag"]:
+                    final_category = "Jeans"
+                    final_name_prefix = "Denim"
+                elif category == "Trousers": 
                     final_category = "Jeans"
                     final_name_prefix = "Denim"
                 elif category in ["Shorts", "Skirt"]:
@@ -358,12 +351,9 @@ class FashionAIModel:
             # Use matcher to get a complementary color suggestion for the metadata
             best_color = "Denim"
             try:
-                # We find what colors pair well with this item's color
                 candidates = ['White', 'Black', 'Denim', 'Navy', 'Beige']
                 best_score = 0
-                
                 dummy_input = {'color': color_name, 'category': final_category, 'fabric': fabric}
-                
                 for c in candidates:
                     dummy_partner = {'color': c, 'category': 'Bottom' if final_category == 'Top' else 'Top', 'fabric': 'Cotton'}
                     res = fashion_matcher.match_items(dummy_input, dummy_partner)
@@ -397,67 +387,109 @@ class FashionAIModel:
     @staticmethod
     async def get_outfit_suggestion(image_data: str, variation: int = 0) -> Dict[str, Any]:
         """
-        Uses the AdvancedFashionMatcher to find the best complementary item.
-        Dynamically tests color combinations against the input item.
+        Generates distinct outfit suggestions.
+        Updated to ensure 'Regenerate' creates noticeably different sets using seed offsetting.
         """
         try:
             img = FashionAIModel.vision.decode_image(image_data)
             _, color, _ = FashionAIModel.vision.get_dominant_color(img)
             category = FashionAIModel.vision.analyze_shape(img)
             
-            # Create a dummy item for our engine
-            input_item = {'color': color, 'category': category, 'fabric': 'Unknown'}
+            # 1. Ensure Randomness is actually random based on variation
+            # Use a hash of input + variation to create a stable but changing seed
+            seed_val = hash(image_data[:50]) + (variation * 77)
+            random.seed(seed_val)
+
+            # 2. Vibes Cycle
+            vibes = ["Minimalist", "Boho", "Chic", "Streetwear", "Elegant", "Casual", "Vintage", "Preppy"]
+            # Pick vibe based on variation index, but randomize if variation > 8
+            vibe_idx = variation % len(vibes)
+            vibe = vibes[vibe_idx]
             
-            # Candidate Palette to test against
+            # 3. Match Logic (Stochastic)
+            input_item = {'color': color, 'category': category, 'fabric': 'Unknown'}
             candidates = ['Black', 'White', 'Navy', 'Beige', 'Denim', 'Gray', 'Olive', 'Camel', 'Red', 'Silver']
+            # Shuffle candidates to break deterministic order
+            random.shuffle(candidates)
             
             best_match_color = "Denim"
             best_score = -1
             
-            # Run the matching engine for each candidate color
             for cand_color in candidates:
-                # If input is Bag, look for a Dress match (outfit anchor)
-                # If input is Top, look for Bottom match, else Top
-                if category == 'Bag':
-                    target_cat = 'Dress'
-                elif category in ['Top', 'T-Shirt', 'Sweater', 'Blouse', 'Shirt']:
-                    target_cat = 'Bottom'
-                elif category in ['Dress', 'Jumpsuit']:
-                    target_cat = 'Jacket' # Dresses pair with outerwear
-                else:
-                    target_cat = 'Top'
+                if category == 'Bag': target_cat = 'Dress'
+                elif category in ['Top', 'T-Shirt', 'Sweater', 'Blouse', 'Shirt']: target_cat = 'Bottom'
+                elif category in ['Dress', 'Jumpsuit']: target_cat = 'Jacket' 
+                else: target_cat = 'Top'
                 
                 dummy_partner = {'color': cand_color, 'category': target_cat, 'fabric': 'Cotton'}
                 result = fashion_matcher.match_items(input_item, dummy_partner)
                 
-                # Add some randomness for variation requests
-                randomized_score = result['compatibility_score'] + (random.random() * 10 if variation > 0 else 0)
+                # Add randomness to scoring to diversify color pairing
+                randomized_score = result['compatibility_score'] + (random.random() * 15)
                 
                 if randomized_score > best_score:
                     best_score = randomized_score
                     best_match_color = cand_color
 
-            vibes = ["Minimalist", "Boho", "Chic", "Streetwear", "Elegant", "Casual"]
-            vibe = vibes[variation % len(vibes)]
+            # --- EXPANDED SHOE LIBRARY ---
+            shoe_library = {
+                "Streetwear": ["Jordan 1 Highs", "Chunky Dad Sneakers", "Yeezy Slides", "Dunk Lows", "Tech Runners", "Air Force 1s"],
+                "Chic": ["Pointed Toe Mules", "Kitten Heels", "Slingback Pumps", "Leather Ankle Boots", "Ballet Flats"],
+                "Boho": ["Suede Booties", "Gladiator Sandals", "Espadrilles", "Leather Slides", "Western Boots"],
+                "Minimalist": ["White Leather Sneakers", "Black Chelsea Boots", "Clean Loafers", "Derby Shoes"],
+                "Elegant": ["Stilettos", "Patent Leather Pumps", "Strappy Heels", "Velvet Loafers"],
+                "Casual": ["Canvas Slip-ons", "Running Shoes", "Low-top Sneakers", "Boat Shoes", "Classic Converse"],
+                "Vintage": ["Oxford Brogues", "T-Strap Heels", "Penny Loafers", "Saddle Shoes"],
+                "Preppy": ["Boat Shoes", "Penny Loafers", "Riding Boots", "Driving Mocs"]
+            }
             
+            # --- EXPANDED ACCESSORY/JEWELRY LIBRARY ---
+            jewelry_library = {
+                "Streetwear": ["Chunky Silver Chain", "Hoop Earrings", "Layered Chains", "Stud Earrings"],
+                "Chic": ["Gold Pendant Necklace", "Pearl Earrings", "Stackable Rings", "Dainty Gold Chain"],
+                "Boho": ["Turquoise Ring", "Beaded Necklace", "Feather Earrings", "Layered Bangles"],
+                "Minimalist": ["Thin Gold Band", "Small Studs", "Geometric Pendant", "Silver Cuff"],
+                "Elegant": ["Diamond Studs", "Tennis Bracelet", "Pearl Necklace", "Statement Ring"],
+                "Casual": ["Simple Pendant", "Leather Bracelet", "Beaded Bracelet", "Watch"],
+                "Vintage": ["Cameo Brooch", "Locket Necklace", "Clip-on Earrings", "Signet Ring"],
+                "Preppy": ["Pearl Studs", "Gold Bangle", "Charm Bracelet", "Headband"]
+            }
+
+            # --- EXPANDED BAG/ACCESSORY LIBRARY ---
+            bag_library = {
+                "Streetwear": ["Crossbody Fanny Pack", "Mini Backpack", "Nylon Tote", "Chest Rig", "Beanie"],
+                "Chic": ["Leather Structured Tote", "Top Handle Bag", "Silk Scarf", "Clutch", "Oversized Sunglasses"],
+                "Boho": ["Fringed Crossbody", "Woven Tote", "Floppy Hat", "Patterned Scarf"],
+                "Minimalist": ["Canvas Tote", "Saddle Bag", "Leather Shopper", "Structured Clutch"],
+                "Elegant": ["Satin Clutch", "Quilted Shoulder Bag", "Silk Shawl", "Leather Gloves"],
+                "Casual": ["Canvas Backpack", "Slouchy Tote", "Baseball Cap", "Crossbody Bag"],
+                "Vintage": ["Frame Handbag", "Beaded Purse", "Silk Headscarf", "Cat-eye Sunglasses"],
+                "Preppy": ["Structured Satchel", "Canvas Tote", "Ribbon Belt", "Headband"]
+            }
+
+            # Final selections using the variation-seeded random
+            shoe_choice = random.choice(shoe_library.get(vibe, shoe_library["Casual"]))
+            jewelry_choice = random.choice(jewelry_library.get(vibe, jewelry_library["Casual"]))
+            bag_choice = random.choice(bag_library.get(vibe, bag_library["Casual"]))
+
             # Construct the descriptive match string
             match_piece_str = ""
             if category == 'Bag':
-                 match_piece_str = f"{best_match_color} Dress or Top & Bottom"
+                 match_piece_str = f"{best_match_color} Dress or Co-ord"
             elif category in ['Dress', 'Jumpsuit']:
-                 match_piece_str = f"{best_match_color} Blazer"
+                 match_piece_str = f"{best_match_color} Jacket or Blazer"
             elif category in ['Top', 'T-Shirt', 'Sweater']:
-                 match_piece_str = f"{best_match_color} Trousers"
+                 match_piece_str = f"{best_match_color} Trousers or Skirt"
             else:
-                 match_piece_str = f"{best_match_color} Top"
+                 match_piece_str = f"{best_match_color} Top or Blouse"
 
             return {
                 "vibe": vibe,
                 "identified_item": f"{color} {category}",
                 "match_piece": match_piece_str,
-                "jewelry": "Gold Chain" if vibe in ["Chic", "Elegant"] else "Silver Minimalist",
-                "shoes": "Sneakers" if vibe == "Streetwear" else "Loafers",
-                "bag": "Crossbody" if vibe == "Casual" else "Clutch",
+                "jewelry": jewelry_choice,
+                "shoes": shoe_choice,
+                "bag": bag_choice,
                 "best_color": best_match_color
             }
         except Exception as e:
@@ -475,7 +507,6 @@ class FashionAIModel:
         for style in styles:
             outfit = fashion_matcher.create_complete_outfit(items, style=style)
             if outfit and 'items' in outfit:
-                # Adapt to the frontend expected format
                 outfits.append({
                     "name": outfit['name'],
                     "vibe": outfit['vibe'],
@@ -488,15 +519,10 @@ class FashionAIModel:
     def get_evolution_data(items: List[Dict[str, Any]], history: List[Dict[str, Any]] = []) -> Dict[str, Any]:
         """
         Uses Advanced Engine to analyze wardrobe health/gaps.
-        Also processes quiz history into a timeline.
         """
-        # 1. Analyze Wardrobe Items
         analysis = fashion_matcher.analyze_wardrobe_gaps(items)
-        
-        # 2. Analyze Style Quiz History
         timeline = []
         
-        # Format dates nicely
         def format_date(iso_str):
             try:
                 dt = datetime.fromisoformat(iso_str)
@@ -505,7 +531,6 @@ class FashionAIModel:
                 return "Unknown"
 
         for i, entry in enumerate(history):
-            # Parse styles list to get primary aesthetic
             style_list = []
             try:
                 style_list = json.loads(entry.get('styles', '[]'))
@@ -514,7 +539,6 @@ class FashionAIModel:
             
             primary_style = style_list[0] if style_list else entry.get('archetype', 'Mapped')
             
-            # Determine mood based on color preference if available in summary, else generic
             mood = "Exploring"
             summary = entry.get('summary', '')
             if 'Minimalist' in primary_style: mood = "Clean & Sharp"
@@ -525,12 +549,12 @@ class FashionAIModel:
                 "period": format_date(entry.get('created_at', '')),
                 "stage": primary_style,
                 "style": " & ".join(style_list[:2]),
-                "color": "Personalized", # Placeholder, would need color extracted from quiz
+                "color": "Personalized", 
                 "mood": mood,
                 "progress": entry.get('comfort_level', 50),
-                "items": len(items), # Snapshot of wardrobe size at that time (approx)
+                "items": len(items),
                 "key_item": "DNA Profile",
-                "is_current": i == 0 # First item is most recent
+                "is_current": i == 0
             })
 
         return {
@@ -545,24 +569,96 @@ class FashionAIModel:
             }
         }
     
-    # --- Other methods remain standard ---
     @staticmethod
     def curate_trip(city: str, duration: int, vibe: str) -> Dict[str, Any]:
+        # REAL Shopping Database for Fashion Capitals
+        CITY_SHOPPING_GUIDE = {
+            "Delhi": {
+                "markets": ["Khan Market", "Sarojini Nagar", "Dilli Haat", "Select Citywalk"],
+                "gems": ["Hauz Khas Village", "Shahpur Jat", "Meherchand Market", "Santushti Complex"]
+            },
+            "Mumbai": {
+                "markets": ["Colaba Causeway", "Linking Road", "Hill Road", "Palladium Mall"],
+                "gems": ["Kala Ghoda Boutiques", "Chor Bazaar (Vintage)", "Bandra 190", "Le Mill"]
+            },
+            "London": {
+                "markets": ["Oxford Street", "Regent Street", "Camden Market", "Covent Garden"],
+                "gems": ["Carnaby Street", "Seven Dials", "Shoreditch Boxpark", "Brick Lane Vintage"]
+            },
+            "Paris": {
+                "markets": ["Champs-Élysées", "Galeries Lafayette", "Le Marais", "Rue de Rivoli"],
+                "gems": ["Canal Saint-Martin", "Passage des Panoramas", "Rue Saint-Honoré", "Montmartre Boutiques"]
+            },
+            "New York": {
+                "markets": ["Fifth Avenue", "SoHo Broadway", "Herald Square", "Chelsea Market"],
+                "gems": ["Williamsburg Vintage", "Meatpacking District", "Nolita Boutiques", "Greenwich Village"]
+            },
+            "Tokyo": {
+                "markets": ["Ginza District", "Shibuya 109", "Omotesando Hills", "Shinjuku Station"],
+                "gems": ["Shimokitazawa (Vintage)", "Harajuku Takeshita St", "Daikanyama T-Site", "Cat Street"]
+            },
+            "Milan": {
+                "markets": ["Galleria Vittorio Emanuele", "Corso Buenos Aires", "Via Monte Napoleone", "La Rinascente"],
+                "gems": ["Brera District", "Navigli Vintage", "Corso di Porta Ticinese", "10 Corso Como"]
+            },
+            "Dubai": {
+                "markets": ["The Dubai Mall", "Mall of the Emirates", "City Walk", "Gold Souk"],
+                "gems": ["Alserkal Avenue", "Boxpark", "Design District (d3)", "Global Village"]
+            }
+        }
+
+        target_city = city.title().strip()
+        shopping_data = CITY_SHOPPING_GUIDE.get(target_city)
+        
+        if not shopping_data:
+            for key in CITY_SHOPPING_GUIDE:
+                if key in target_city or target_city in key:
+                    shopping_data = CITY_SHOPPING_GUIDE[key]
+                    break
+        
+        if not shopping_data:
+            shopping_data = {
+                "markets": [f"{city} City Center", "Main Street Promenade", "Central Plaza Mall", "Old Town Market"],
+                "gems": [f"{city} Arts District", "Heritage Quarter", "local Boutiques Lane", "Crafts Bazaar"]
+            }
+
+        tops_count = max(2, duration)
+        bottoms_count = max(1, duration // 2 + 1)
+        socks_count = duration + 1
+        
+        packing_list = [
+            f"{tops_count}x Breathable Tops",
+            f"{bottoms_count}x Bottoms (Versatile)",
+            f"{socks_count}x Underwear & Socks",
+            "1x Light Jacket / Layer",
+            "1x Comfortable Walking Shoes",
+            "1x Evening Outfit",
+            "Sleepwear Set",
+            "Toiletries Kit",
+            "Power Bank & Chargers",
+            "Sunglasses & Accessories"
+        ]
+
+        if vibe == 'beach':
+            packing_list.extend(["2x Swimwear", "Flip Flops / Sandals", "Beach Towel", "Sunscreen (SPF 50)"])
+        elif vibe == 'mountain':
+            packing_list.extend(["Thermal Layers", "Hiking Boots", "Wool Beanie", "Rain Jacket"])
+        elif vibe == 'city':
+            packing_list.extend(["Daypack / Tote", "Smart Casual Shoes", "Compact Umbrella"])
+
         return {
             "city": city,
             "days": duration,
-            "weather_summary": "Seasonally mild",
-            "clothes_count": duration * 2 + 2,
-            "packing_list": ["Essentials", "Toiletries", "Comfortable Shoes"],
-            "must_visit": [{"name": "Central Market", "description": "Local hub", "type": "Market"}],
-            "hidden_gems": [{"name": "Artisan Lane", "description": "Crafts", "type": "Boutique"}]
+            "weather_summary": f"Seasonally mild ({random.randint(18,28)}°C)",
+            "clothes_count": len(packing_list),
+            "packing_list": packing_list,
+            "must_visit": [{"name": m, "description": "Popular shopping destination", "type": "Market"} for m in shopping_data['markets'][:3]],
+            "hidden_gems": [{"name": g, "description": "Curated local finds", "type": "Boutique"} for g in shopping_data['gems'][:3]]
         }
 
     @staticmethod
     async def audit_brand(brand: str) -> Dict[str, Any]:
         b = brand.lower()
-        
-        # Hardcoded known brands for realism
         known_scores = {
             "patagonia": {"total": 92, "eco": 95, "labor": 90, "trans": 91, "summary": "Industry leader in environmental responsibility and supply chain transparency."},
             "reformation": {"total": 85, "eco": 88, "labor": 80, "trans": 87, "summary": "Strong focus on sustainable materials and carbon neutrality."},
@@ -588,8 +684,6 @@ class FashionAIModel:
                 "sources": [{"uri": "#", "title": f"{brand} Sustainability Report"}]
             }
             
-        # Generative scores for unknown brands
-        # Use hashing to ensure the same brand always gets the same 'random' score
         seed = sum(ord(c) for c in b)
         random.seed(seed)
         
