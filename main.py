@@ -9,9 +9,10 @@ import json
 import logging
 from dotenv import load_dotenv
 
-from database import get_db, init_db
-from auth_utils import get_current_user, hash_password, verify_password, create_access_token, UserProfile
-from ai_model import FashionAIModel
+#CUSTOM IMPORTS
+from database import get_db, init_db  #from database.py
+from auth_utils import get_current_user, hash_password, verify_password, create_access_token, UserProfile #from auth_utils.py
+from ai_model import FashionAIModel  #from ai_model.py
 
 # Load env vars but let Uvicorn handle the logging config to avoid Windows multiprocessing errors
 load_dotenv()
@@ -27,11 +28,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize DB on startup
+# Runs init_db() on app launch to create DB tables 
 @app.on_event("startup")
 def on_startup():
     init_db()
 
+# Creates a new user account.
 @app.post("/api/auth/register")
 async def register(data: Dict[str, Any]):
     conn = get_db()
@@ -53,6 +55,7 @@ async def register(data: Dict[str, Any]):
     finally:
         conn.close()
 
+#Authenticates an existing user.
 @app.post("/api/auth/login")
 async def login(credentials: Dict[str, str]):
     conn = get_db()
@@ -63,12 +66,15 @@ async def login(credentials: Dict[str, str]):
     token = create_access_token(user['user_id'])
     return {"access_token": token, "user": dict(user)}
 
+#  Analyzes an image to tag garment details 
 @app.post("/api/ai/fabric-scan")
 async def fabric_scan(data: Dict[str, Any], user: UserProfile = Depends(get_current_user)):
     image = data.get('image')
     if not image: raise HTTPException(400, "Image required")
     return await FashionAIModel.autotag_garment(image)
 
+
+# Suggests outfits based on an uploaded image.
 @app.post("/api/ai/outfit-match")
 async def outfit_match(data: Dict[str, Any], user: UserProfile = Depends(get_current_user)):
     image = data.get('image')
@@ -76,6 +82,8 @@ async def outfit_match(data: Dict[str, Any], user: UserProfile = Depends(get_cur
     if not image: raise HTTPException(400, "Image required")
     return await FashionAIModel.get_outfit_suggestion(image, variation)
 
+
+#Curates outfits for a trip based on location/duration
 @app.get("/api/ai/vacation-packer")
 async def vacation_packer(
     vacation_type: str = Query("city"),
@@ -85,6 +93,8 @@ async def vacation_packer(
 ):
     return FashionAIModel.curate_trip(city, duration_days, vacation_type)
 
+
+#Generates outfits from user's wardrobe items.
 @app.post("/api/ai/curate-outfits")
 async def curate_outfits(
     data: Dict[str, Any] = Body(...), 
@@ -94,17 +104,21 @@ async def curate_outfits(
     if not items: raise HTTPException(400, "Wardrobe items required")
     return await FashionAIModel.generate_outfits_from_wardrobe(items)
 
+#Provides styling advice based on weather.
 @app.post("/api/ai/weather-search")
 async def weather_search(data: Dict[str, Any], user: UserProfile = Depends(get_current_user)):
     city = data.get('city', 'Delhi')
     return FashionAIModel.weather_styling(city)
 
+#Audits a brand for sustainability.
 @app.post("/api/ai/green-audit")
 async def green_audit(data: Dict[str, Any], user: UserProfile = Depends(get_current_user)):
     brand = data.get('brand')
     if not brand: raise HTTPException(400, "Brand required")
     return await FashionAIModel.audit_brand(brand)
 
+
+#Retrieves user's wardrobe items.
 @app.get("/api/wardrobe")
 async def get_wardrobe(user: UserProfile = Depends(get_current_user)):
     conn = get_db()
@@ -112,6 +126,8 @@ async def get_wardrobe(user: UserProfile = Depends(get_current_user)):
     conn.close()
     return [dict(row) for row in items]
 
+
+#Adds a new wardrobe item.
 @app.post("/api/wardrobe")
 async def add_wardrobe_item(
     name: str = Form(...),
@@ -132,6 +148,8 @@ async def add_wardrobe_item(
     conn.close()
     return {"success": True}
 
+
+#Deletes an item.
 @app.delete("/api/wardrobe/{item_id}")
 async def delete_wardrobe_item(item_id: str, user: UserProfile = Depends(get_current_user)):
     conn = get_db()
@@ -140,6 +158,7 @@ async def delete_wardrobe_item(item_id: str, user: UserProfile = Depends(get_cur
     conn.close()
     return {"success": True}
 
+#Logs wearing an item (increments wear count).
 @app.post("/api/wardrobe/{item_id}/wear")
 async def wear_item(item_id: str, user: UserProfile = Depends(get_current_user)):
     conn = get_db()
@@ -149,6 +168,7 @@ async def wear_item(item_id: str, user: UserProfile = Depends(get_current_user))
     conn.close()
     return {"success": True}
 
+#Updates an item.
 @app.put("/api/wardrobe/{item_id}")
 async def update_wardrobe_item(
     item_id: str,
@@ -188,6 +208,8 @@ async def update_wardrobe_item(
     conn.close()
     return {"success": True}
 
+
+#Gets dashboard stats (wardrobe count, style archetype).
 @app.get("/api/dashboard/stats")
 async def get_stats(user: UserProfile = Depends(get_current_user)):
     conn = get_db()
@@ -218,6 +240,8 @@ async def get_evolution(user: UserProfile = Depends(get_current_user)):
     conn.close()
     return FashionAIModel.get_evolution_data([dict(i) for i in items], [dict(h) for h in history])
 
+
+#Provides style evolution data.
 @app.get("/api/style/dna/{user_id}")
 async def get_style_dna(user_id: str, user: UserProfile = Depends(get_current_user)):
     conn = get_db()
@@ -227,6 +251,8 @@ async def get_style_dna(user_id: str, user: UserProfile = Depends(get_current_us
         return {"has_dna": True, **dict(row)}
     return {"has_dna": False}
 
+
+#Checks if user has style DNA.
 @app.post("/api/style/dna")
 async def save_style_dna(data: Dict[str, Any], user: UserProfile = Depends(get_current_user)):
     conn = get_db()
@@ -252,10 +278,14 @@ async def save_style_dna(data: Dict[str, Any], user: UserProfile = Depends(get_c
     conn.close()
     return {"success": True}
 
+
+# Saves/updates style DNA.
 @app.get("/api/user/profile")
 async def get_profile(user: UserProfile = Depends(get_current_user)):
     return user.dict()
 
+
+#Returns user profile data.
 @app.put("/api/user/profile")
 async def update_profile(data: Dict[str, Any], user: UserProfile = Depends(get_current_user)):
     conn = get_db()
@@ -270,6 +300,8 @@ async def update_profile(data: Dict[str, Any], user: UserProfile = Depends(get_c
     conn.close()
     return dict(user_row)
 
+
+#retrieves color/brand preferences.
 @app.get("/api/user/preferences")
 async def get_preferences(user: UserProfile = Depends(get_current_user)):
     conn = get_db()
@@ -279,6 +311,8 @@ async def get_preferences(user: UserProfile = Depends(get_current_user)):
         return {"colors": json.loads(row['colors']), "brands": json.loads(row['brands'])}
     return {"colors": [], "brands": []}
 
+
+#Gets recent activity (e.g., added items).
 @app.put("/api/user/preferences")
 async def update_preferences(data: Dict[str, Any], user: UserProfile = Depends(get_current_user)):
     conn = get_db()
