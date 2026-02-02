@@ -22,8 +22,6 @@
   - [OpenCV (cv2)](https://opencv.org/) - Image processing, structural analysis, edge detection.
   - [Scikit-Learn](https://scikit-learn.org/) - K-Means Clustering for dominant color extraction.
   - [Numpy](https://numpy.org/) - Matrix operations for image data.
-- **Generative AI (Cloud)**:
-  - [Google Gemini API](https://ai.google.dev/) - (Optional/Placeholder) For advanced text generation and complex reasoning.
 - **Logic**: Rule-based styling engine (Heuristic matching).
 - **External Data**: 
   - [WeatherAPI.com](https://www.weatherapi.com/) - Real-time weather data for styling.
