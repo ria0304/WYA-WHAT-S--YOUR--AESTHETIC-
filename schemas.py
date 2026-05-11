@@ -64,7 +64,6 @@ class OutfitCreate(BaseModel):
     name: str
     vibe: Optional[str] = ""
     items: List[OutfitItem] = []
-    is_daily: Optional[bool] = False
     created_date: Optional[str] = None
 
 
@@ -74,12 +73,6 @@ class StyleDNACreate(BaseModel):
     styles: List[str]
     comfort_level: Optional[int] = 5
     summary: Optional[str] = ""
-
-
-# ====================== NOTIFICATIONS ======================
-
-class NotificationPreferencesUpdate(BaseModel):
-    daily_drop_email: bool = False
 
 
 # ====================== AI REQUESTS ======================
