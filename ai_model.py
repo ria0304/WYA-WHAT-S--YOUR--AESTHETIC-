@@ -322,11 +322,6 @@ class FashionAIModel:
         return FashionAIModel.outfit_generator.analyze_wardrobe_gaps(user_id, wardrobe_items, db_conn)
 
     @staticmethod
-    async def get_daily_drop(user_id: str, wardrobe_items: List[Dict[str, Any]], location: str = None) -> Dict[str, Any]:
-        """Generate daily drop with color harmony (Feature 2)."""
-        return FashionAIModel.outfit_generator.generate_daily_drop(user_id, wardrobe_items, location)
-
-    @staticmethod
     async def get_aesthetic_aura(user_id: str, wardrobe_items: List[Dict[str, Any]], db_conn) -> Dict[str, Any]:
         """Generate aesthetic aura data for share card (Feature 8)."""
         return FashionAIModel.outfit_generator.generate_aesthetic_aura(user_id, wardrobe_items, db_conn)
@@ -414,11 +409,6 @@ class FashionAIModel:
     # ------------------------------------------------------------------
     # Push Notifications (Feature 10)
     # ------------------------------------------------------------------
-
-    @staticmethod
-    async def send_daily_drop_notification(user_id: str, outfit_name: str, db_conn) -> bool:
-        """Send push notification for daily drop."""
-        return await NotificationService.send_daily_drop_notification(user_id, outfit_name, db_conn)
 
     @staticmethod
     async def save_push_subscription(user_id: str, subscription_data: Dict[str, Any], db_conn) -> bool:
