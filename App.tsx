@@ -15,7 +15,6 @@ import StyleQuiz from './views/StyleQuiz';
 import Curate from './views/Curate';
 import AestheticAura from './views/AestheticAura';
 import TheArchive from './views/TheArchive';
-import DailyDrop from './views/DailyDrop';
 import { AppTab, User as UserType } from './types';
 import { api } from './services/api';
 
@@ -141,7 +140,6 @@ const App: React.FC = () => {
           <Route path="/curate" element={<Curate />} />
           <Route path="/aesthetic-aura" element={<AestheticAura />} />
           <Route path="/archive" element={<TheArchive />} />
-          <Route path="/daily-drop" element={<DailyDrop />} />
           <Route path="/me" element={<Profile user={user} onUpdateUser={setUser} onLogout={handleLogout} />} />
           <Route path="/quiz" element={<StyleQuiz onComplete={async (dnaSummary) => { 
             try {
