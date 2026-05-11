@@ -18,21 +18,21 @@ logger = logging.getLogger(__name__)
 try:
     import cv2
     CV2_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError):
     CV2_AVAILABLE = False
     logger.warning("OpenCV not available - image processing will be limited")
 
 try:
     from sklearn.cluster import KMeans
     SKLEARN_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError):
     SKLEARN_AVAILABLE = False
     logger.warning("sklearn not available - color clustering will use fallback")
 
 try:
     import torch
     TORCH_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError):
     TORCH_AVAILABLE = False
     logger.warning("PyTorch not available - deep learning features disabled")
 
@@ -42,7 +42,7 @@ except ImportError:
 try:
     from rembg import remove
     REMBG_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError):
     REMBG_AVAILABLE = False
     logger.warning("rembg not available - background removal will use fallback")
 
@@ -76,7 +76,7 @@ def load_sam() -> None:
             logger.info("SAM (vit_b) loaded on %s", device)
         else:
             logger.warning("SAM checkpoint not found at %s. Using GrabCut fallback.", checkpoint)
-    except Exception as exc:
+    except (ImportError, OSError, Exception) as exc:
         logger.warning("SAM loading failed: %s", exc)
 
 
@@ -92,7 +92,7 @@ def load_fashionclip() -> None:
         clip_processor = CLIPProcessor.from_pretrained("patrickjohncyh/fashion-clip")
         FASHIONCLIP_AVAILABLE = True
         logger.info("FashionCLIP loaded successfully.")
-    except Exception as exc:
+    except (ImportError, OSError, Exception) as exc:
         logger.warning("FashionCLIP loading failed: %s", exc)
 
 
@@ -474,7 +474,6 @@ class LocalComputerVision:
         if name in ("Navy", "Blue", "Light Blue", "Gray") and 60 < g < 150 and 40 < r < 140 and 80 < b < 200:
             name = "Denim"
 
-        # Also return hex for color palette
         hex_color = "#{:02x}{:02x}{:02x}".format(r, g, b)
 
         return hex_color, name, (r, g, b)
@@ -515,10 +514,8 @@ class LocalComputerVision:
         if not CV2_AVAILABLE:
             return {"has_pattern": False, "pattern_type": "solid", "confidence": 0.5}
         
-        # Use masked region if provided
         if mask is not None and np.sum(mask > 0) > 0:
             masked = cv2.bitwise_and(image, image, mask=mask)
-            # Crop to bounding box
             coords = cv2.findNonZero(mask)
             if coords is not None:
                 x, y, w, h = cv2.boundingRect(coords)
@@ -531,29 +528,18 @@ class LocalComputerVision:
         if cropped.size == 0:
             return {"has_pattern": False, "pattern_type": "solid", "confidence": 0.5}
         
-        # Convert to grayscale
         gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
-        
-        # Calculate edge density (patterns have more edges)
         edges = cv2.Canny(gray, 50, 150)
         edge_density = np.sum(edges > 0) / edges.size
-        
-        # Calculate color variance
         hsv = cv2.cvtColor(cropped, cv2.COLOR_BGR2HSV)
         hue_variance = np.var(hsv[:, :, 0])
-        
         has_pattern = edge_density > 0.05 or hue_variance > 500
         
-        # Determine pattern type (simplified)
         pattern_type = "solid"
         if has_pattern:
-            # Check for stripes vs floral vs geometric
-            # Analyze edge orientation
             sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
             sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
             angle = np.arctan2(sobely, sobelx)
-            
-            # If edges are strongly oriented in one direction, likely stripes
             angle_hist, _ = np.histogram(angle, bins=36)
             max_orientation = np.max(angle_hist) / np.sum(angle_hist)
             
