@@ -1,5 +1,5 @@
 # services/outfit_generator.py
-# Outfit generation, daily drop, gap analysis, and aesthetic aura.
+# Outfit generation, gap analysis, and aesthetic aura.
 # Delegates heavy lifting to ai_matcher.AdvancedFashionMatcher.
 
 import json
@@ -25,7 +25,7 @@ from .style_profile import StyleProfile
 
 class OutfitGenerator:
     """
-    Generates outfits, daily drops, aesthetic auras, and gap analysis results.
+    Generates outfits, aesthetic auras, and gap analysis results.
     All methods are pure functions that receive wardrobe data — no DB state.
     """
 
@@ -46,39 +46,6 @@ class OutfitGenerator:
             if outfit:
                 outfits.append(outfit)
         return outfits
-
-    # ------------------------------------------------------------------
-    # Daily Drop (Feature 2)
-    # ------------------------------------------------------------------
-
-    def generate_daily_drop(
-        self,
-        user_id: str,
-        wardrobe_items: List[Dict[str, Any]],
-        location: str = None,
-    ) -> Dict[str, Any]:
-        """Generate today's outfit drop using color harmony seed logic."""
-        if not wardrobe_items:
-            return {'error': 'No wardrobe items found', 'outfit': None}
-
-        # Deterministic seed per user per day so the drop is stable
-        day_seed = int(datetime.utcnow().strftime('%Y%m%d')) + hash(user_id or 'anon')
-        random.seed(day_seed)
-
-        season = self._current_season()
-        style = random.choice(['casual', 'classic', 'streetwear', 'boho', 'formal'])
-
-        if MATCHER_AVAILABLE:
-            outfit = fashion_matcher.create_complete_outfit(wardrobe_items, style=style, occasion='daytime')
-        else:
-            outfit = self._fallback_outfit(wardrobe_items)
-
-        return {
-            'outfit': outfit,
-            'season': season,
-            'style': style,
-            'generated_at': datetime.utcnow().isoformat(),
-        }
 
     # ------------------------------------------------------------------
     # Gap Analysis (Feature 3) — delegates to AdvancedFashionMatcher
