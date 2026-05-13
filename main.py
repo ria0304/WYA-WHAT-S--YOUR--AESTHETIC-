@@ -346,11 +346,13 @@ async def archive_item(item_id: str, data: Dict[str, Any], user: UserProfile = D
     conn = get_db()
     
     # Get the item
-    item = conn.execute("SELECT * FROM wardrobe_items WHERE item_id = ? AND user_id = ?", (item_id, user.user_id)).fetchone()
+    row = conn.execute("SELECT * FROM wardrobe_items WHERE item_id = ? AND user_id = ?", (item_id, user.user_id)).fetchone()
     
-    if not item:
+    if not row:
         conn.close()
         raise HTTPException(404, "Item not found")
+    
+    item = dict(row)  # convert sqlite3.Row → dict so .get() works
     
     # Insert into archive
     now = datetime.utcnow().isoformat()
