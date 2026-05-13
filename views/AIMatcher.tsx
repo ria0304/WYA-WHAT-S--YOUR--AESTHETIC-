@@ -134,8 +134,10 @@ const AIMatcher: React.FC = () => {
     }
   };
 
-  const openAffiliateSearch = (query: string) => {
-    const url = `https://www.google.com/search?q=${encodeURIComponent(query + ' buy online sustainable')}`;
+  const openAffiliateSearch = (query: string, directUrl?: string) => {
+    const url = directUrl && directUrl.startsWith('http')
+      ? directUrl
+      : `https://www.google.com/search?q=${encodeURIComponent(query + ' buy online sustainable')}`;
     window.open(url, '_blank', 'noopener');
   };
 
@@ -342,12 +344,15 @@ const AIMatcher: React.FC = () => {
                       </div>
                       <AlertCircle className="w-5 h-5 shrink-0 opacity-40 mt-1" />
                     </div>
-                    <button
-                      onClick={() => openAffiliateSearch(gap.affiliateQuery)}
+                    <a
+                      href={gap.affiliateUrl && gap.affiliateUrl.startsWith('http') ? gap.affiliateUrl : `https://www.google.com/search?q=${encodeURIComponent(gap.affiliateQuery + ' buy online sustainable')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="w-full mt-4 py-3 bg-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-700 flex items-center justify-center gap-2 border border-white/60 shadow-sm hover:shadow-md transition-all active:scale-95"
                     >
-                      <ShoppingBag className="w-4 h-4" /> Shop Sustainable Options
-                    </button>
+                      <ShoppingBag className="w-4 h-4" />
+                      Shop {gap.affiliateBrand || 'Sustainable Options'}
+                    </a>
                   </div>
                 ))}
               </div>
