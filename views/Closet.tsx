@@ -117,11 +117,30 @@ const Closet: React.FC = () => {
     fabric: ''
   });
 
-  const categories = [
-    'All', 'Top', 'Bottom', 'Trousers', 'Jeans', 'Skirt', 'Dress', 'Shorts',
-    'T-Shirt', 'Sweater', 'Jacket', 'Outerwear',
-    'Shoes', 'Bag', 'Necklace', 'Ring', 'Earrings', 'Watch', 'Accessories'
-  ];
+  // Display tabs — broad buckets shown in the filter bar
+  const categories = ['All', 'Top', 'Bottom', 'Outerwear', 'Dress', 'Bag', 'Shoe', 'Accessory'];
+
+  // Map fine-grained stored categories → broad filter bucket
+  const categoryBucket: Record<string, string> = {
+    // Tops
+    'Top': 'Top', 'T-Shirt': 'Top', 'Sweater': 'Top', 'Blouse': 'Top', 'Shirt': 'Top',
+    // Bottoms
+    'Bottom': 'Bottom', 'Trousers': 'Bottom', 'Jeans': 'Bottom', 'Skirt': 'Bottom',
+    'Shorts': 'Bottom', 'Pants': 'Bottom', 'Leggings': 'Bottom',
+    // Outerwear
+    'Outerwear': 'Outerwear', 'Jacket': 'Outerwear', 'Coat': 'Outerwear', 'Blazer': 'Outerwear',
+    // Dress
+    'Dress': 'Dress', 'Jumpsuit': 'Dress', 'Romper': 'Dress',
+    // Bag
+    'Bag': 'Bag', 'Purse': 'Bag', 'Backpack': 'Bag', 'Tote': 'Bag', 'Clutch': 'Bag',
+    // Shoe
+    'Shoes': 'Shoe', 'Shoe': 'Shoe', 'Sneakers': 'Shoe', 'Boots': 'Shoe', 'Heels': 'Shoe',
+    'Sandals': 'Shoe', 'Flats': 'Shoe', 'Loafers': 'Shoe',
+    // Accessory
+    'Accessories': 'Accessory', 'Accessory': 'Accessory',
+    'Necklace': 'Accessory', 'Ring': 'Accessory', 'Earrings': 'Accessory',
+    'Watch': 'Accessory', 'Belt': 'Accessory', 'Hat': 'Accessory', 'Scarf': 'Accessory',
+  };
 
   useEffect(() => { fetchItems(); }, []);
 
@@ -301,7 +320,9 @@ const Closet: React.FC = () => {
     }
   };
 
-  const filteredItems = filter === 'All' ? items : items.filter(i => i.category === filter);
+  const filteredItems = filter === 'All'
+    ? items
+    : items.filter(i => (categoryBucket[i.category] ?? i.category) === filter);
 
   return (
     <div className="p-6 bg-white min-h-full">
@@ -503,7 +524,15 @@ const Closet: React.FC = () => {
                     value={newItem.category}
                     onChange={e => setNewItem({ ...newItem, category: e.target.value })}
                   >
-                    {categories.filter(c => c !== 'All').map(cat => (
+                    {[
+                      'Top', 'T-Shirt', 'Sweater', 'Blouse', 'Shirt',
+                      'Bottom', 'Trousers', 'Jeans', 'Skirt', 'Shorts', 'Pants', 'Leggings',
+                      'Outerwear', 'Jacket', 'Coat', 'Blazer',
+                      'Dress', 'Jumpsuit', 'Romper',
+                      'Bag', 'Purse', 'Backpack', 'Tote', 'Clutch',
+                      'Shoes', 'Sneakers', 'Boots', 'Heels', 'Sandals', 'Flats', 'Loafers',
+                      'Accessories', 'Necklace', 'Ring', 'Earrings', 'Watch', 'Belt', 'Hat', 'Scarf',
+                    ].map(cat => (
                       <option key={cat}>{cat}</option>
                     ))}
                   </select>
