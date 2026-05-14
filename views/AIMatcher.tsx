@@ -126,7 +126,8 @@ const AIMatcher: React.FC = () => {
     setLoadingGap(true);
     setGapItems([]);
     try {
-      const data = await api.wardrobe.gapAnalysis();
+      const inspiredCategory = aiSuggestion?.category || '';
+      const data = await api.wardrobe.gapAnalysis(inspiredCategory);
       // Append budget to affiliate URLs so search is budget-aware
         // Extract numeric budget cap
       const budgetNum = budgetRange
