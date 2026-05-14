@@ -135,9 +135,21 @@ class FashionAIModel:
             shoe_subtype: str = getattr(FashionAIModel.vision, "_last_shoe_subtype", "Shoes")
 
             texture = FashionAIModel.vision.analyze_texture_properties(img, mask)
-            pattern = FashionAIModel.vision.detect_pattern(img, mask)
-            pattern_type: str = pattern.get("pattern_type", "solid")
-            has_pattern: bool = pattern.get("has_pattern", False)
+
+            # Pattern detection is only meaningful for clothing.
+            # Shoes, bags and accessories have shiny/structured surfaces
+            # (patent leather, hardware, weave) that produce strong Sobel edges
+            # and falsely fire as "Striped" or "Geometric". Skip for these.
+            _NO_PATTERN_CATEGORIES = {
+                "Shoes", "Bag", "Necklace", "Ring", "Earrings", "Watch", "Accessories"
+            }
+            if category in _NO_PATTERN_CATEGORIES:
+                pattern_type: str = "solid"
+                has_pattern: bool = False
+            else:
+                pattern = FashionAIModel.vision.detect_pattern(img, mask)
+                pattern_type = pattern.get("pattern_type", "solid")
+                has_pattern = pattern.get("has_pattern", False)
 
             fabric = FashionAIModel.classifier.classify(
                 variance=texture["variance"],
