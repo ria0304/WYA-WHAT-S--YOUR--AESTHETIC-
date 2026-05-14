@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Plane, Sparkles, X, Briefcase, MapPin, Calendar, Loader2, Store, ChevronRight, CheckCircle2, ShoppingBag, Gift, Shirt, Map, Tag } from 'lucide-react';
 import { api } from '../services/api';
@@ -149,14 +148,14 @@ const VacationShop: React.FC = () => {
                 <ShoppingBag className="w-4 h-4" /> Major Local Markets
               </h3>
               <div className="space-y-4">
-                {(result.must_visit || []).map((place: any, i: number) => (
+                {(result.major_markets || result.must_visit || []).map((place: any, i: number) => (
                   <div key={i} className="bg-slate-50 p-5 rounded-[28px] border border-slate-100/50">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-[11px] font-black text-slate-800 uppercase">{place.name}</h4>
                       <Tag className="w-4 h-4 text-indigo-400" />
                     </div>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">{place.type}</p>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">{place.description}</p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">{place.description || place.specialty}</p>
                   </div>
                 ))}
               </div>
@@ -168,7 +167,7 @@ const VacationShop: React.FC = () => {
                 <Sparkles className="w-4 h-4" /> Hidden Gems & Unique Finds
               </h3>
               <div className="space-y-4">
-                {(result.hidden_gems || []).map((shop: any, i: number) => (
+                {(result.hidden_gem_boutiques || result.hidden_gems || []).map((shop: any, i: number) => (
                   <div key={i} className="bg-white p-5 rounded-[28px] border border-pink-50 shadow-sm">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-[11px] font-black text-slate-800 uppercase">{shop.name}</h4>
