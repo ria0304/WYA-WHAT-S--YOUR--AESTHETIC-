@@ -4,7 +4,7 @@ const getBaseUrl = () => {
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return `http://${hostname}:8000`;
     }
-    return '';
+    return 'https://wya-whats-your-aesthetic.onrender.com';
   }
   return 'http://localhost:8000';
 };
@@ -22,8 +22,6 @@ const getAuthHeaders = (isFormData = false, isGet = false) => {
   if (token && token !== 'null' && token !== 'undefined') {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  // Don't set Content-Type for GET requests or FormData — GET+JSON content-type
-  // can confuse some proxies and cause auth middleware to misread the request.
   if (!isFormData && !isGet) headers['Content-Type'] = 'application/json';
   return headers;
 };
@@ -62,7 +60,7 @@ const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
   } catch (err) {
     console.warn(`API Error (${endpoint}):`, err);
     throw new Error(err instanceof TypeError && err.message === 'Failed to fetch'
-      ? 'Unable to connect to server. Ensure the backend is running on port 8000.'
+      ? 'Unable to connect to server. Ensure the backend is running.'
       : (err as Error).message);
   }
 };
@@ -82,7 +80,6 @@ const flushPendingDNA = async () => {
   } catch (_) { /* will retry next time */ }
 };
 
-// Flush any queued DNA on boot
 if (typeof window !== 'undefined') {
   window.addEventListener('online', flushPendingDNA);
   setTimeout(flushPendingDNA, 3000);
@@ -130,22 +127,17 @@ export const api = {
     add: async (formData: FormData) => apiFetch('/api/wardrobe', { method: 'POST', body: formData }),
     update: async (id: string, formData: FormData) => apiFetch(`/api/wardrobe/${id}`, { method: 'PUT', body: formData }),
     delete: async (id: string) => apiFetch(`/api/wardrobe/${id}`, { method: 'DELETE' }),
-    /** Log wear with optional ISO timestamp for Evolution tracking */
     wear: async (id: string, wornAt?: string) => apiFetch(`/api/wardrobe/${id}/wear`, {
       method: 'POST',
       body: JSON.stringify({ worn_at: wornAt || new Date().toISOString() }),
     }),
-    /** Send item to archive instead of hard-deleting */
     archive: async (id: string, reason: string, memoryNote?: string) =>
       apiFetch(`/api/wardrobe/${id}/archive`, {
         method: 'POST',
         body: JSON.stringify({ reason, memory_note: memoryNote || '' }),
       }),
-    /** Remove background from a closet image (returns { bg_removed_url }) */
     removeBackground: async (id: string) =>
       apiFetch(`/api/wardrobe/${id}/remove-bg`, { method: 'POST' }),
-
-    // AI Endpoints
     scanFabric: async (image: string) => apiFetch('/api/ai/fabric-scan', {
       method: 'POST',
       body: JSON.stringify({ image })
@@ -154,11 +146,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ image, variation })
     }),
-    /** Gap analysis: compare Style DNA to actual inventory */
-    gapAnalysis: async (inspiredCategory?: string) => apiFetch('/api/ai/gap-analysis', { method: 'POST', body: JSON.stringify({ inspired_category: inspiredCategory || '' }) }),
+    gapAnalysis: async (inspiredCategory?: string) => apiFetch('/api/ai/gap-analysis', {
+      method: 'POST',
+      body: JSON.stringify({ inspired_category: inspiredCategory || '' })
+    }),
   },
 
-  // ─── Outfits (server-persisted) ────────────────────────────────────────────
   outfits: {
     getAll: async () => apiFetch('/api/outfits', {}),
     save: async (outfit: any) => apiFetch('/api/outfits', {
@@ -166,14 +159,12 @@ export const api = {
       body: JSON.stringify(outfit),
     }),
     delete: async (id: number) => apiFetch(`/api/outfits/${id}`, { method: 'DELETE' }),
-    /** Log an outfit as worn, records worn_at timestamp */
     logWorn: async (id: number, wornAt?: string) => apiFetch(`/api/outfits/${id}/worn`, {
       method: 'POST',
       body: JSON.stringify({ worn_at: wornAt || new Date().toISOString() }),
     }),
   },
 
-  // ─── Archive ────────────────────────────────────────────────────────────────
   archive: {
     getAll: async () => apiFetch('/api/archive', {}),
     permanentDelete: async (id: string) => apiFetch(`/api/archive/${id}`, { method: 'DELETE' }),
@@ -214,10 +205,6 @@ export const api = {
 
   style: {
     getDNA: async (user_id: string) => apiFetch(`/api/style/dna/${user_id}`, {}),
-    /**
-     * Save Style DNA with resilience:
-     * if the request fails, queue it locally and retry on next online event.
-     */
     saveDNA: async (dnaData: any) => {
       try {
         const result = await apiFetch('/api/style/dna', {
@@ -227,7 +214,6 @@ export const api = {
         localStorage.removeItem(DNA_PENDING_KEY);
         return result;
       } catch (err) {
-        // Cache for background retry
         localStorage.setItem(DNA_PENDING_KEY, JSON.stringify(dnaData));
         console.warn('DNA save failed – queued for retry');
         throw err;
