@@ -1,8 +1,12 @@
 [phases.setup]
-nixPkgs = ["libGL", "libGLU", "glib"]
+nixPkgs = ["libGL", "libGLU", "glib", "libSM", "libxext", "libxrender"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
+cmds = ["pip install --upgrade pip", "pip install -r requirements.txt"]
 
 [start]
 cmd = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+
+[variables]
+QT_QPA_PLATFORM = "offscreen"
+OPENCV_IO_ENABLE_OPENEXR = "1"
