@@ -15,7 +15,7 @@ requests>=2.31.0
 # ── Numerics / ML core ─────────────────────────────────────────────
 numpy>=1.26.0
 # ── Computer vision (optional but recommended) ─────────────────────
-opencv-python-headless>=4.9.0      # `import cv2` (headless = works on servers)
+opencv-python-headless>=4.8.0.74    # `import cv2` (headless = works on servers)
 Pillow>=10.3.0                     # `from PIL import Image`
 scikit-learn>=1.4.0                # KMeans colour clustering
 # ── Deep learning (optional – lazy-loaded, app runs without them) ──
