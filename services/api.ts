@@ -4,7 +4,7 @@ const getBaseUrl = () => {
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return `http://${hostname}:8000`;
     }
-    return 'https://wya-whats-your-aesthetic.onrender.com';
+    return 'https://wya-whats-your-aesthetic-production.up.railway.app';
   }
   return 'http://localhost:8000';
 };
@@ -65,7 +65,6 @@ const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
   }
 };
 
-// ─── Style DNA resilience: local queue ───────────────────────────────────────
 const DNA_PENDING_KEY = 'wya_dna_pending';
 
 const flushPendingDNA = async () => {
