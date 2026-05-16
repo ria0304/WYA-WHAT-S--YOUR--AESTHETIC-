@@ -33,7 +33,7 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://wya-whats-your-aesthetic.netlify.app",
+        "http://wya-whats-your-aesthetic.s3-website.ap-south-1.amazonaws.com",
         "https://wya-whats-your-aesthetic-production.up.railway.app",
     ],
     allow_credentials=True,
