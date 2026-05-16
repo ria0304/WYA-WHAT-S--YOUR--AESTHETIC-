@@ -14,16 +14,9 @@ python-dotenv>=1.0.1               # `from dotenv import load_dotenv`
 requests>=2.31.0
 # ── Numerics / ML core ─────────────────────────────────────────────
 numpy>=1.26.0
-# ── Computer vision (optional but recommended) ─────────────────────
-opencv-python-headless>=4.8.0.74    # `import cv2` (headless = works on servers)
+# ── Computer vision ────────────────────────────────────────────────
+opencv-python-headless>=4.8.0.74   # `import cv2` (headless = works on servers)
 Pillow>=10.3.0                     # `from PIL import Image`
 scikit-learn>=1.4.0                # KMeans colour clustering
-# ── Deep learning (optional – lazy-loaded, app runs without them) ──
-torch>=2.2.0                       # PyTorch CPU build; for GPU see https://pytorch.org
-transformers>=4.40.0               # CLIP / FashionCLIP via HuggingFace
-rembg>=2.0.57                      # background removal
-# ── Segment Anything Model (optional) ──────────────────────────────
-# Uncomment if you use the SAM-based segmentation pipeline:
-# segment-anything>=1.0
 # ── Push notifications ─────────────────────────────────────────────
 pywebpush>=2.0.0
