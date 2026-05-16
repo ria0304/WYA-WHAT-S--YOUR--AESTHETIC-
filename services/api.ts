@@ -4,7 +4,7 @@ const getBaseUrl = () => {
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return `http://${hostname}:8000`;
     }
-    return 'https://wya-whats-your-aesthetic-production.up.railway.app';
+    return 'http://13.201.121.83:8000';
   }
   return 'http://localhost:8000';
 };
