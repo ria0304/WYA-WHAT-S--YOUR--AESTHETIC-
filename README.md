@@ -40,7 +40,7 @@ A full-stack AI-powered fashion web app that helps users discover, analyze, and 
 - SQLite via SQLAlchemy
 - OpenCV + Pillow for computer vision
 - AWS SageMaker Serverless for garment classification (FashionCLIP / CLIP)
-- Deployed on AWS EC2 (Ubuntu, t2.micro) via systemd
+- Deployed on AWS EC2 (Ubuntu, t2.micro) via Docker
 
 ### AWS Infrastructure
 - EC2 instance: `i-0ee2cb7f52191f766` (ap-south-1)
@@ -88,6 +88,7 @@ WYA-Whats-Your-Aesthetic/
 ├── database.py             # SQLite models + connection
 ├── auth_utils.py           # JWT authentication
 ├── schemas.py              # Pydantic schemas
+├── Dockerfile              # Docker image for backend
 ├── deploy_fashionclip.py   # SageMaker endpoint deployment script
 ├── requirements.txt
 ├── .env
@@ -139,7 +140,8 @@ EC2 authenticates to SageMaker via IAM instance profile (`wya-ec2-profile`) — 
 ## Deployment Status
 
 - Frontend deployed via AWS S3 + CloudFront
-- Backend running on AWS EC2 (Ubuntu t2.micro, ap-south-1) via systemd
+- Backend running in Docker on AWS EC2 (Ubuntu t2.micro, ap-south-1)
+- Docker image: `wya-backend:latest` running on port 8000
 - SageMaker Serverless endpoint live (`wya-fashionclip-serverless`) for garment classification
 - IAM instance profile configured for EC2 to SageMaker auth
 
@@ -147,11 +149,26 @@ EC2 authenticates to SageMaker via IAM instance profile (`wya-ec2-profile`) — 
 
 ## Deployment
 
-### Backend (EC2)
+### Backend (Docker on EC2)
 ```bash
-sudo systemctl start wya.service
-sudo systemctl status wya.service
-sudo journalctl -u wya.service -f
+# Build image
+sudo docker build -t wya-backend .
+
+# Run container
+sudo docker run -d \
+  --name wya \
+  --restart unless-stopped \
+  -p 8000:8000 \
+  --env-file .env \
+  wya-backend
+
+# View logs
+sudo docker logs -f wya
+
+# Restart after code changes
+sudo docker stop wya && sudo docker rm wya
+sudo docker build -t wya-backend .
+sudo docker run -d --name wya --restart unless-stopped -p 8000:8000 --env-file .env wya-backend
 ```
 
 ### Frontend (S3 + CloudFront)
