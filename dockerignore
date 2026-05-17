@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+venv/
+env/
+.env.local
+
+# Database (mounted as volume instead)
+*.db
+*.sqlite
+*.sqlite3
+
+# Node
+node_modules/
+dist/
+.next/
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# AWS / deployment scripts
+deploy_fashionclip.py
+deploy_fashionclip_old.py
+deploy_ec2_docker.sh
+
+# Test files
+test_endpoint.py
+pytest_cache/
+.pytest_cache/
+
+# Large media
+icon-512.png
+icon-192.png

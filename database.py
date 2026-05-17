@@ -1,11 +1,14 @@
 import sqlite3
 import logging
+import os
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 def get_db():
-    conn = sqlite3.connect('wya.db', check_same_thread=False)
+    DB_PATH = os.getenv('DB_PATH', '/app/data/wya.db')
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
