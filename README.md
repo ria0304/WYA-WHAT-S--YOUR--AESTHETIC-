@@ -136,6 +136,15 @@ EC2 authenticates to SageMaker via IAM instance profile (`wya-ec2-profile`) — 
 
 ---
 
+## Deployment Status
+
+- Frontend deployed via AWS S3 + CloudFront
+- Backend running on AWS EC2 (Ubuntu t2.micro, ap-south-1) via systemd
+- SageMaker Serverless endpoint live (`wya-fashionclip-serverless`) for garment classification
+- IAM instance profile configured for EC2 to SageMaker auth
+
+---
+
 ## Deployment
 
 ### Backend (EC2)
