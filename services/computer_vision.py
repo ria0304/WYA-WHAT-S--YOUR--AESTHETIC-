@@ -484,33 +484,38 @@ class LocalComputerVision:
         except Exception:
             return ""
 
-    # ── HuggingFace API fallback ─────────────────────────────────────────────
+    # ── SageMaker Serverless fallback ────────────────────────────────────────
 
     def _identify_garment_hf_api(self, image: np.ndarray) -> str:
-        """Fallback: use HuggingFace Inference API for garment classification."""
-        import os, base64, requests, io
+        """Fallback: use SageMaker Serverless FashionCLIP for garment classification."""
+        import os, base64, io, json
+        import boto3
         from PIL import Image as PILImage
-        hf_token = os.getenv("HF_TOKEN", "")
-        if not hf_token:
-            return "Top"
+
+        endpoint_name = os.getenv("SAGEMAKER_ENDPOINT", "wya-fashionclip-serverless")
+        region = os.getenv("AWS_REGION", "ap-south-1")
+
         try:
             pil_img = PILImage.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
             buf = io.BytesIO()
             pil_img.save(buf, format="JPEG")
             img_b64 = base64.b64encode(buf.getvalue()).decode()
+
             labels = [
                 "t-shirt", "dress", "jeans", "trousers", "jacket", "coat",
                 "skirt", "shoes", "sneakers", "heels", "boots", "bag",
                 "shorts", "hoodie", "blazer", "jumpsuit", "blouse"
             ]
-            headers = {"Authorization": f"Bearer {hf_token}"}
-            response = requests.post(
-                "https://api-inference.huggingface.co/models/openai/clip-vit-base-patch32",
-                headers=headers,
-                json={"inputs": {"image": img_b64, "text": labels}},
-                timeout=15
+
+            runtime = boto3.client("sagemaker-runtime", region_name=region)
+            payload = {"inputs": img_b64, "parameters": {"candidate_labels": labels}}
+            response = runtime.invoke_endpoint(
+                EndpointName=endpoint_name,
+                ContentType="application/json",
+                Body=json.dumps(payload),
             )
-            results = response.json()
+            results = json.loads(response["Body"].read())
+
             if isinstance(results, list) and results:
                 top = results[0].get("label", "Top").lower()
                 mapping = {
@@ -524,7 +529,7 @@ class LocalComputerVision:
                 }
                 return mapping.get(top, "Top")
         except Exception as e:
-            logger.warning(f"HF API garment fallback failed: {e}")
+            logger.warning(f"SageMaker garment fallback failed: {e}")
         return "Top"
 
     # ── Main garment identifier ──────────────────────────────────────────────
