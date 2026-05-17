@@ -2,6 +2,8 @@
 
 A full-stack AI-powered fashion web app that helps users discover, analyze, and refine their personal style. WYA combines computer vision, style profiling, and wardrobe intelligence to deliver personalized aesthetic insights.
 
+The complete AI pipeline is fully functional in local development. Current work focuses on productionizing inference and deployment on AWS infrastructure using EC2, Docker, and SageMaker Serverless.
+
 ---
 
 ## Live Deployment
@@ -10,6 +12,24 @@ A full-stack AI-powered fashion web app that helps users discover, analyze, and 
 |---|---|
 | Frontend | https://d1yc69o122s878.cloudfront.net |
 | Backend API | http://13.201.121.83:8000 |
+
+---
+
+## Architecture
+
+```
+User
+  ↓
+CloudFront + S3
+  ↓
+React Frontend
+  ↓
+FastAPI Backend (Docker on EC2)
+  ↓
+SageMaker Serverless Endpoint
+  ↓
+FashionCLIP / CLIP
+```
 
 ---
 
@@ -28,6 +48,18 @@ A full-stack AI-powered fashion web app that helps users discover, analyze, and 
 
 ---
 
+## AI Pipeline
+
+1. Garment preprocessing and background removal
+2. Computer vision feature extraction (OpenCV)
+3. CLIP / FashionCLIP embedding generation via SageMaker Serverless
+4. Color palette clustering using KMeans
+5. Style profile vectorization
+6. Outfit similarity matching
+7. Personalized recommendation generation
+
+---
+
 ## Tech Stack
 
 ### Frontend
@@ -39,15 +71,14 @@ A full-stack AI-powered fashion web app that helps users discover, analyze, and 
 - FastAPI (Python)
 - SQLite via SQLAlchemy
 - OpenCV + Pillow for computer vision
-- AWS SageMaker Serverless for garment classification (FashionCLIP / CLIP)
-- Deployed on AWS EC2 (Ubuntu, t2.micro) via Docker
+- AWS SageMaker Serverless for garment classification
+- Deployed on AWS EC2 via Docker
 
 ### AWS Infrastructure
-- EC2 instance: `i-0ee2cb7f52191f766` (ap-south-1)
-- S3 bucket: `wya-whats-your-aesthetic`
-- CloudFront distribution
-- SageMaker Serverless Endpoint: `wya-fashionclip-serverless`
-- IAM Role: `wya-sagemaker-role`
+- EC2 (ap-south-1) running Dockerized FastAPI backend
+- S3 + CloudFront for static frontend hosting
+- SageMaker Serverless Endpoint for ML inference
+- IAM instance profile for secure EC2 to SageMaker authentication
 
 ---
 
@@ -121,7 +152,6 @@ uvicorn main:app --reload
 See `env.example` for all required variables including:
 - `SECRET_KEY` — JWT secret
 - `WYA_VAPID_PRIVATE_KEY` / `WYA_VAPID_PUBLIC_KEY` — Push notifications
-- `HF_TOKEN` — HuggingFace token (optional, SageMaker used instead)
 
 ---
 
@@ -129,21 +159,29 @@ See `env.example` for all required variables including:
 
 Garment category detection uses a three-tier fallback:
 
-1. **Local FashionCLIP** — attempted first; fails on t2.micro due to RAM
-2. **AWS SageMaker Serverless** — `wya-fashionclip-serverless` endpoint runs `openai/clip-vit-base-patch32` for zero-shot image classification
+1. **Local FashionCLIP** — attempted first; skipped if RAM is insufficient
+2. **AWS SageMaker Serverless** — CLIP-based zero-shot image classification
 3. **Default** — returns "Top" if both fail
 
-EC2 authenticates to SageMaker via IAM instance profile (`wya-ec2-profile`) — no API keys needed.
+EC2 authenticates to SageMaker via IAM instance profile — no API keys required.
 
 ---
 
 ## Deployment Status
 
-- Frontend deployed via AWS S3 + CloudFront
-- Backend running in Docker on AWS EC2 (Ubuntu t2.micro, ap-south-1)
-- Docker image: `wya-backend:latest` running on port 8000
-- SageMaker Serverless endpoint live (`wya-fashionclip-serverless`) for garment classification
-- IAM instance profile configured for EC2 to SageMaker auth
+- Frontend deployed on AWS S3 + CloudFront
+- Backend containerized using Docker
+- AI inference pipeline fully functional locally
+- EC2 and SageMaker production integration currently being optimized
+
+| Component | Status |
+|---|---|
+| Core AI pipeline | Working locally |
+| Auto-tagging | Working locally |
+| Fabric detection | Working locally |
+| Frontend | Deployed |
+| Backend (Docker) | Deployed on EC2 |
+| SageMaker inference | Integration in progress |
 
 ---
 
