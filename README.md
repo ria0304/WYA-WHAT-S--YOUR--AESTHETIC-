@@ -2,6 +2,8 @@
 
 > A full-stack AI-powered fashion web app that helps users discover, analyze, and refine their personal style. WYA combines computer vision, style profiling, and wardrobe intelligence to deliver personalized aesthetic insights.
 
+![Deploy to AWS](https://img.shields.io/github/actions/workflow/status/ria0304/WYA-Whats-Your-Aesthetic/deploy.yml?branch=main&label=Deploy+to+AWS&logo=github&logoColor=white&labelColor=24292e&color=2ea44f)
+
 ---
 
 ## 🔗 Live Deployment
