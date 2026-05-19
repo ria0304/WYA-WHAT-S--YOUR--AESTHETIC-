@@ -12,7 +12,7 @@
 
 🔗 **Live:** [dsbml6kwxecah.cloudfront.net](https://dsbml6kwxecah.cloudfront.net)
 
-</table>
+</div>
 
 ---
 
