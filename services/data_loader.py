@@ -8,7 +8,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-GEOAPIFY_API_KEY = "3e48b0904db44b08993cd8c2aa999b4f"
+GEOAPIFY_API_KEY = os.getenv("GEOAPIFY_API_KEY", "")
 
 
 def load_json_data(file_path: str, default: Any = None) -> Any:
