@@ -255,3 +255,4 @@ python3 Test_sagemaker.py
 # Test with a real garment image
 python3 Test_sagemaker.py /path/to/garment.jpg
 ```
+# test
