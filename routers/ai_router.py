@@ -35,9 +35,25 @@ async def outfit_match(data: Dict[str, Any], user: UserProfile = Depends(get_cur
     conn.close()
     wardrobe_items = [dict(item) for item in items]
 
-    from ai_matcher import fashion_matcher
+    from ai_matcher import fashion_matcher, _text_to_pseudo_embedding
+    import embedding_store
+
     inspiration_item = {"category": "Top", "color": "Unknown", "fabric": "Unknown"}
-    ranked = fashion_matcher.rank_closet_matches(inspiration_item, wardrobe_items)
+
+    # Try FAISS first (O(log n)), fall back to linear scan O(n) if no index
+    if embedding_store.index_exists(user.user_id):
+        query_emb = _text_to_pseudo_embedding(inspiration_item)
+        similar_ids = embedding_store.search(user.user_id, query_emb, top_k=8)
+        if similar_ids:
+            id_set = set(similar_ids)
+            ranked = [w for w in wardrobe_items if w.get("item_id") in id_set]
+            # Preserve FAISS ordering
+            id_order = {sid: i for i, sid in enumerate(similar_ids)}
+            ranked.sort(key=lambda x: id_order.get(x.get("item_id", ""), 999))
+        else:
+            ranked = fashion_matcher.rank_closet_matches(inspiration_item, wardrobe_items)
+    else:
+        ranked = fashion_matcher.rank_closet_matches(inspiration_item, wardrobe_items)
 
     suggestion = await FashionAIModel.get_outfit_suggestion(image, variation, user.user_id)
     suggestion['closet_matches'] = ranked[:8]
