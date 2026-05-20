@@ -6,6 +6,8 @@
 <img src="https://img.shields.io/badge/AI-FashionCLIP%20%2B%20SageMaker-purple?style=flat-square" />
 <img src="https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-black?style=flat-square&logo=githubactions" />
 
+![CI/CD](https://github.com/ria0304/WYA-Whats-Your-Aesthetic/actions/workflows/deploy.yml/badge.svg)
+
 # WYA — What's Your Aesthetic
 
 **An AI-powered full-stack fashion web app** that helps users discover, analyze, and refine their personal style through computer vision, style profiling, and wardrobe intelligence.
@@ -26,7 +28,9 @@ flowchart TD
 
     C["🗂️ S3 Static Frontend\nReact + Vite · TypeScript"]:::teal
 
-    D["🖥️ EC2 FastAPI Backend\nDocker · port 8000 · ap-south-1"]:::blue
+    D["🖥️ EC2 FastAPI Backend\nDocker · c7i-flex.large · ap-south-1"]:::blue
+
+    DB["🗄️ SQLite Database\nPersisted via Docker volume"]:::gray
 
     E["🤖 AWS SageMaker\nwya-fashionclip-serverless · ml.m5.xlarge"]:::amber
 
@@ -35,6 +39,7 @@ flowchart TD
     A --> B
     B -->|"/*"| C
     B -->|"/api/*"| D
+    D --> DB
     D --> E
     E --> F
 
@@ -159,12 +164,15 @@ flowchart TD
 | Database (SQLite, persistent volume) | ✅ Live |
 | SageMaker FashionCLIP endpoint | ✅ InService |
 | CI/CD (GitHub Actions) | ✅ Auto-deploy on push |
-| Garment auto-tagging | ✅ Working |
+| Garment auto-tagging (category) | ✅ Working |
 | Color detection (KMeans) | ✅ Working |
+| Fabric classifier | ✅ Working |
 | Background removal | ✅ Working |
 | Login / Wardrobe / Style DNA | ✅ Working |
 | Outfit Matcher | ✅ Working |
 | Weather Styling | ✅ Working |
+| Green Score | ✅ Working |
+| Aesthetic Aura | ✅ Working |
 
 ---
 
@@ -185,25 +193,35 @@ WYA-Whats-Your-Aesthetic/
 │   └── Profile.tsx
 │
 ├── routers/                    # FastAPI route modules
-│   ├── auth_router.py          # /api/auth
-│   ├── wardrobe_router.py      # /api/wardrobe
-│   ├── outfit_router.py        # /api/outfits
-│   ├── ai_router.py            # /api/ai
-│   ├── style_router.py         # /api/style
-│   └── user_router.py          # /api/user
+│   ├── auth_router.py          # /api/auth — login, register
+│   ├── wardrobe_router.py      # /api/wardrobe — CRUD, remove-bg, archive
+│   ├── outfit_router.py        # /api/outfits — save, wear tracking, history
+│   ├── ai_router.py            # /api/ai — fabric-scan, outfit-match, weather, gap
+│   ├── style_router.py         # /api/style — DNA, aura, evolution, dashboard
+│   └── user_router.py          # /api/user — profile, preferences, notifications
 │
 ├── services/                   # Backend service modules
-│   ├── computer_vision.py
-│   ├── fabric_classifier.py
-│   ├── color_matcher.py
-│   ├── outfit_generator.py
-│   ├── style_profile.py
-│   └── weather_service.py
+│   ├── computer_vision.py      # Garment detection, masking, color, pattern
+│   ├── fabric_classifier.py    # Rule-based fabric inference engine
+│   ├── color_matcher.py        # Color harmony engine
+│   ├── outfit_generator.py     # Outfit + gap analysis
+│   ├── style_profile.py        # Style DNA extraction
+│   ├── gap_analyzer.py         # Wardrobe gap detection
+│   ├── brand_auditor.py        # Brand sustainability scoring
+│   ├── weather_service.py      # Real-time weather + outfit pairing
+│   ├── trip_curator.py         # Vacation packing curation
+│   ├── email_service.py
+│   └── notification_service.py
 │
-├── ai_model.py                 # AI orchestrator
-├── main.py                     # FastAPI entry point
-├── database.py                 # SQLite + SQLAlchemy
-├── Dockerfile
+├── ai_model.py                 # AI orchestrator (autotag, suggestions, aura)
+├── ai_matcher.py               # Advanced similarity matching engine
+├── logger.py                   # Centralised logging config
+├── main.py                     # FastAPI entry point + router registration
+├── database.py                 # SQLite models + SQLAlchemy setup
+├── auth_utils.py               # JWT authentication
+├── schemas.py                  # Pydantic request/response schemas
+├── Dockerfile                  # Docker image for backend
+├── .dockerignore
 └── .github/workflows/deploy.yml
 ```
 
@@ -232,7 +250,7 @@ uvicorn main:app --reload
 | Variable | Description |
 |---|---|
 | `SECRET_KEY` | JWT secret |
-| `SAGEMAKER_ENDPOINT` | SageMaker endpoint name |
+| `SAGEMAKER_ENDPOINT` | SageMaker endpoint name (default: `wya-fashionclip-serverless`) |
 | `AWS_REGION` | AWS region (default: `ap-south-1`) |
 | `WYA_VAPID_PRIVATE_KEY` | Push notification private key |
 | `WYA_VAPID_PUBLIC_KEY` | Push notification public key |
@@ -256,6 +274,9 @@ sudo docker run -d \
 
 # Logs
 sudo docker logs wya -f
+
+# Free disk space after rebuilds
+sudo docker system prune -a -f
 ```
 
 ---
@@ -263,5 +284,25 @@ sudo docker logs wya -f
 ## CI/CD (GitHub Actions)
 
 Push to `main` automatically triggers:
-- `deploy-backend` — SSH into EC2, rebuild Docker image, restart container (~2m 30s)
-- `deploy-frontend` — `npm run build` → S3 sync → CloudFront invalidation (~30s)
+1. `deploy-backend` — SSH into EC2, rebuild Docker image, restart container (~2m 30s)
+2. `deploy-frontend` — `npm run build` → S3 sync → CloudFront invalidation (~30s)
+
+Workflow file: `.github/workflows/deploy.yml`
+
+---
+
+## SageMaker Endpoint
+
+```bash
+source venv/bin/activate
+python3 deploy_fashionclip.py
+```
+
+**Diagnose SageMaker connectivity:**
+```bash
+pip3 install boto3 pillow --break-system-packages
+python3 Test_sagemaker.py
+
+# Test with a real garment image
+python3 Test_sagemaker.py /path/to/garment.jpg
+```
