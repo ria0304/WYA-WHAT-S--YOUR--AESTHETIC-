@@ -12,21 +12,34 @@ build/
 # Virtual environment
 venv/
 env/
+.env
 .env.local
 
-# Database (mounted as volume instead)
+# Database (mounted as volume)
 *.db
 *.sqlite
 *.sqlite3
 
-# Node
+# Frontend build artifacts — not needed in backend image
 node_modules/
 dist/
 .next/
+*.tsx
+*.ts
+*.jsx
+*.js
+package.json
+package-lock.json
+tsconfig.json
+vite.config.ts
+index.html
+sw.js
+manifest.json
 
 # Git
 .git/
 .gitignore
+.github/
 
 # Logs
 *.log
@@ -42,16 +55,19 @@ Thumbs.db
 *.swp
 *.swo
 
-# AWS / deployment scripts
+# AWS / deployment scripts (not needed at runtime)
 deploy_fashionclip.py
 deploy_fashionclip_old.py
 deploy_ec2_docker.sh
+Test_sagemaker.py
 
 # Test files
-test_endpoint.py
 pytest_cache/
 .pytest_cache/
+tests/
 
-# Large media
+# Large static assets
 icon-512.png
 icon-192.png
+README.md
+TECH_STACK.md
