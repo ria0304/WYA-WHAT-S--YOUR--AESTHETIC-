@@ -49,6 +49,25 @@ async def add_wardrobe_item(
             (item_id, user.user_id, name, category, color, fabric, image_url, now)
         )
         conn.commit()
+
+        # Generate and persist embedding
+        item_dict = {"item_id": item_id, "name": name, "category": category, "color": color, "fabric": fabric}
+        try:
+            from ai_matcher import _text_to_pseudo_embedding
+            from database import save_embedding
+            emb = _text_to_pseudo_embedding(item_dict)
+            save_embedding(conn, item_id, emb)
+            conn.commit()
+        except Exception as emb_exc:
+            logger.warning("Embedding generation skipped — item=%s error=%s", item_id[:8], emb_exc)
+
+        # Update FAISS index
+        try:
+            import embedding_store
+            embedding_store.add_item(user.user_id, item_dict)
+        except Exception as faiss_exc:
+            logger.warning("FAISS add_item skipped — item=%s error=%s", item_id[:8], faiss_exc)
+
         logger.info("Wardrobe item added — user=%s item=%s category=%s", user.user_id[:8], item_id[:8], category)
         return {"success": True}
     except Exception as e:
@@ -67,6 +86,14 @@ async def delete_wardrobe_item(item_id: str, user: UserProfile = Depends(get_cur
             (item_id, user.user_id)
         )
         conn.commit()
+
+        # Invalidate FAISS index so it rebuilds fresh on next search
+        try:
+            import embedding_store
+            embedding_store.delete_index(user.user_id)
+        except Exception as faiss_exc:
+            logger.warning("FAISS delete_index skipped — user=%s error=%s", user.user_id[:8], faiss_exc)
+
         logger.info("Wardrobe item deleted — user=%s item=%s", user.user_id[:8], item_id[:8])
         return {"success": True}
     except Exception as e:
