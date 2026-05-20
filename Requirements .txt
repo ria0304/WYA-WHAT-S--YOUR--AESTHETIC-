@@ -20,6 +20,7 @@ Pillow>=10.3.0                     # `from PIL import Image`
 scikit-learn>=1.4.0                # KMeans colour clustering
 # ── Push notifications ─────────────────────────────────────────────
 pywebpush>=2.0.0
-
-#AWS (for SageMaker inference calls)
+# ── AWS (SageMaker inference + S3) ────────────────────────────────
 boto3>=1.34.0
+# ── Vector search ──────────────────────────────────────────────────
+faiss-cpu>=1.7.4                   # FAISS flat L2 index for semantic wardrobe search
