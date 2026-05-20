@@ -155,3 +155,44 @@ def init_db():
     conn.commit()
     conn.close()
     logger.info("Database initialization and migration check complete.")
+
+
+# ---------------------------------------------------------------------------
+# Embedding helpers — used by wardrobe_router and embedding_store
+# ---------------------------------------------------------------------------
+
+def save_embedding(conn, item_id: str, embedding_list) -> None:
+    """
+    Persist a numpy array (or plain list) as JSON in the embedding column.
+    Pass embedding_list as _text_to_pseudo_embedding(item).tolist()
+    """
+    import json
+    import numpy as np
+
+    if isinstance(embedding_list, np.ndarray):
+        embedding_list = embedding_list.tolist()
+    serialized = json.dumps(embedding_list)
+    conn.execute(
+        "UPDATE wardrobe_items SET embedding = ? WHERE item_id = ?",
+        (serialized, item_id)
+    )
+
+
+def load_embedding(conn, item_id: str):
+    """
+    Load and deserialize the embedding for an item.
+    Returns a numpy float32 array, or None if no embedding is stored.
+    """
+    import json
+    import numpy as np
+
+    row = conn.execute(
+        "SELECT embedding FROM wardrobe_items WHERE item_id = ?",
+        (item_id,)
+    ).fetchone()
+    if row and row["embedding"]:
+        try:
+            return np.array(json.loads(row["embedding"]), dtype=np.float32)
+        except Exception:
+            return None
+    return None
