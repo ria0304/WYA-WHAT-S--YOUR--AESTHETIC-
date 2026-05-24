@@ -365,91 +365,53 @@ python3 Test_sagemaker.py /path/to/garment.jpg
 
 ---
 
+---
+
 ## Future Scope
 
-### Infrastructure
-| Upgrade | Why |
-|---|---|
-| Migrate SQLite → AWS RDS (Postgres) | SQLite works fine now but can't handle multiple users at the same time. RDS is a proper cloud database built for real traffic. |
-| Add AWS WAF on CloudFront | Right now slowapi protects individual endpoints. WAF adds a network-level shield — blocks bots, bad IPs, and country-level traffic before it even reaches the server. (~$5/mo, worth it with real users) |
-| Add ALB + Auto Scaling | Currently one EC2 server handles everything. Auto Scaling automatically spins up more servers when traffic spikes and shuts them down when it drops — so you only pay for what you use. |
-| Add Redis caching | Store frequently fetched data (wardrobes, style profiles) in memory so the database isn't hit on every request. Speeds things up a lot. |
-
-### AI & Features
+### Features
 | Feature | Why |
 |---|---|
-| Outfit rating & feedback | Let users rate AI-generated outfits so the model learns their personal taste over time |
-| Trend detection | Pull in fashion trend data and flag when wardrobe items are trending or going out of style |
-| Virtual try-on | Overlay clothing items on a user photo using AR/image compositing |
-| Similar item shopping | When a wardrobe item runs out, suggest where to buy something similar online |
-| Outfit calendar | Plan outfits ahead for the week — especially useful before trips or events |
-
-### Social
-| Feature | Why |
-|---|---|
-| Share aesthetic aura card | Let users post their style card to Instagram/WhatsApp directly from the app |
-| Follow other users | See how friends style similar pieces — builds community around the app |
-| Public lookbooks | Users can make their wardrobe/outfits public and discoverable |
-
-### Mobile
-| Feature | Why |
-|---|---|
-| React Native app | Wrap the existing React frontend into a proper mobile app — camera access makes wardrobe uploads much easier |
-| Barcode / tag scanner | Scan clothing tags in a store to instantly check if something fits your aesthetic before buying |
+| Outfit rating & feedback | Users rate AI outfits so recommendations improve over time |
+| Trend detection | Flag wardrobe items that are trending or going out of style |
+| Virtual try-on | Overlay clothing on a user photo using AR |
+| Similar item shopping | Suggest where to buy something similar when an item runs out |
+| Outfit calendar | Plan outfits ahead for the week or upcoming trips |
+| Share aesthetic aura card | Post your style card directly to Instagram or WhatsApp |
+| React Native app | Proper mobile app — camera access makes garment uploads much easier |
+| Barcode scanner | Scan a clothing tag in-store to check if it fits your aesthetic before buying |
 
 ---
 
-## Future Scope — Deployment
+### Deployment Roadmap
 
-| What | What it means in plain English |
+#### Phase 1 — Harden what's already built
+*Things worth doing now while the codebase is still small*
+
+| Task | What it means |
 |---|---|
-| **SQLite → RDS Postgres** | SQLite is a single file on disk — fine for one user, breaks under real traffic. RDS is a managed cloud database that handles thousands of users, automatic backups, and won't corrupt if the server restarts mid-write. |
-| **Staging environment** | Right now every push goes straight to production. A staging server is an identical copy of production where you test changes first — so bugs don't reach real users. |
-| **AWS Secrets Manager** | Passwords and API keys are currently in a `.env` file on the server. Secrets Manager stores them in AWS and rotates them automatically — if the server is ever compromised, keys can be revoked instantly. |
-| **AWS WAF on CloudFront** | Adds a firewall layer before traffic even reaches EC2 — blocks bots, DDoS attacks, bad IPs, and suspicious countries automatically. Currently slowapi handles this at app level. (~$5/mo) |
-| **ALB + Auto Scaling** | One EC2 server handles everything right now. Auto Scaling automatically adds more servers under heavy load and removes them when traffic drops — no manual intervention, no downtime, no overpaying. |
-| **ECS / Docker orchestration** | Instead of manually running `docker run` on EC2, ECS manages containers for you — restarts crashed containers, rolls back bad deploys, and handles zero-downtime deployments. |
-| **CloudWatch alerts** | Get notified on Slack/email when CPU spikes, memory runs low, or error rates jump — before users notice something is wrong. |
-| **Alembic for DB migrations** | Right now schema changes require manually editing the database. Alembic tracks every schema change like Git tracks code — safe, reversible, and deployable through CI/CD. |
-| **Blue-green deployments** | Instead of restarting the server to deploy (brief downtime), blue-green runs a second copy of the app, switches traffic to it, then kills the old one — zero downtime deploys. |
-| **Multi-region** | Currently hosted only in `ap-south-1` (Mumbai). Adding a second region (e.g. `us-east-1`) means users in the US or Europe get much faster response times. |
-
----
-
-## Deployment Roadmap
-
-
-### Phase 1 — Harden the deployment
-*Once things are stable*
-
-| Task | Why |
-|---|---|
-| AWS Secrets Manager | Move API keys and `SECRET_KEY` out of `.env` into managed secrets — safer and easier to rotate |
-| CloudWatch alerts | Get an email/Slack ping when CPU spikes, memory runs low, or error rate jumps |
-| Alembic for DB migrations | Track schema changes like Git tracks code — no more manually editing the database |
+| AWS Secrets Manager | Move `SECRET_KEY` and API keys out of `.env` into AWS-managed storage — safer, rotatable, won't leak if the repo is ever exposed |
+| CloudWatch alerts | Get an email or Slack ping when CPU spikes, memory runs low, or error rate jumps — before users notice |
+| Alembic migrations | Track every database schema change like Git tracks code — safe, versioned, deployable through CI/CD |
 | Staging environment | A second EC2 that mirrors production — test every push there before it goes live |
 
-### Phase 2 — Scale the data layer
+#### Phase 2 — Scale the data layer
 *When the app has regular usage*
 
-| Task | Why |
+| Task | What it means |
 |---|---|
-| Migrate SQLite → RDS Postgres | SQLite is a single file — it breaks under concurrent writes. RDS handles real traffic, has automatic backups, and won't corrupt on a bad restart |
-| Redis caching | Store wardrobe and style profile data in memory so the database isn't hit on every single request |
-| Background job queue (Celery) | Move slow tasks like SageMaker calls and email sending off the main request thread so the API stays fast |
-| Structured observability | Centralized logs + metrics dashboard so you can see exactly what the app is doing at any moment |
+| SQLite → RDS Postgres | SQLite is a single file on disk — it breaks under concurrent writes. RDS handles real traffic, has automatic backups, and won't corrupt on a bad restart |
+| Redis caching | Store wardrobe and style profile data in memory so the database isn't hit on every request |
+| Celery background jobs | Move slow tasks (SageMaker calls, emails, backups) off the main request thread — faster API, no timeout errors |
+| Structured observability | Centralised logs + metrics dashboard so you can see exactly what the app is doing in real time |
 
-### Phase 3 — Only if real users arrive
-*Don't do this early — it costs money and complexity you don't need yet*
+#### Phase 3 — Only if real users arrive
+*Don't do this early — adds cost and complexity you don't need yet*
 
-| Task | Why |
+| Task | What it means |
 |---|---|
-| ALB (Application Load Balancer) | Distributes traffic across multiple EC2 instances instead of one server doing everything |
-| Auto Scaling | Automatically spins up more servers under load, shuts them down when traffic drops |
-| ECS / Docker orchestration | Manages containers properly — zero-downtime deploys, auto-restarts on crash, rollback on bad deploy |
-| AWS WAF | Network-level firewall on CloudFront — blocks bots, DDoS, bad IPs before they reach EC2 (~$5/mo) |
+| ALB + Auto Scaling | Distribute traffic across multiple EC2 instances and spin up more servers automatically under load |
+| ECS / Docker orchestration | Replace manual `docker run` with AWS-managed containers — zero-downtime deploys, auto-restarts, rollback on bad deploy |
+| AWS WAF | Network-level firewall on CloudFront — blocks bots, DDoS, bad IPs before they reach EC2 (~$5/mo, currently handled at app layer by slowapi) |
 | Blue-green deployments | Run two identical environments, switch traffic between them — deploy with zero downtime |
-| Multi-region | Add a second AWS region for users outside Mumbai (US, Europe) for faster response times |
-
----
-
+| Multi-region | Add a second AWS region for users outside Mumbai for faster response times |
