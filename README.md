@@ -406,7 +406,7 @@ python3 Test_sagemaker.py /path/to/garment.jpg
 | Structured observability | Centralised logs + metrics dashboard so you can see exactly what the app is doing in real time |
 
 #### Phase 3 — Only if real users arrive
-*Don't do this early — adds cost and complexity you don't need yet*
+*Implemented only when production traffic justifies horizontal scaling.*
 
 | Task | What it means |
 |---|---|
