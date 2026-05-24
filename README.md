@@ -418,17 +418,8 @@ python3 Test_sagemaker.py /path/to/garment.jpg
 
 ## Deployment Roadmap
 
-### Phase 1 — Stabilize what's live
-*Do this now before anything else*
 
-| Task | Why |
-|---|---|
-| Finish debugging health + test endpoints | Make sure everything deployed actually works end to end |
-| Verify backups are running on EC2 | SSH in, check the cron job is firing, confirm `.db` files are landing in S3 |
-| Improve logging | Add request IDs so you can trace exactly which request caused an error |
-| Fix `.env` on EC2 | Make sure `SECRET_KEY` and all env vars are properly set — not falling back to hardcoded defaults |
-
-### Phase 2 — Harden the deployment
+### Phase 1 — Harden the deployment
 *Once things are stable*
 
 | Task | Why |
@@ -438,7 +429,7 @@ python3 Test_sagemaker.py /path/to/garment.jpg
 | Alembic for DB migrations | Track schema changes like Git tracks code — no more manually editing the database |
 | Staging environment | A second EC2 that mirrors production — test every push there before it goes live |
 
-### Phase 3 — Scale the data layer
+### Phase 2 — Scale the data layer
 *When the app has regular usage*
 
 | Task | Why |
@@ -448,7 +439,7 @@ python3 Test_sagemaker.py /path/to/garment.jpg
 | Background job queue (Celery) | Move slow tasks like SageMaker calls and email sending off the main request thread so the API stays fast |
 | Structured observability | Centralized logs + metrics dashboard so you can see exactly what the app is doing at any moment |
 
-### Phase 4 — Only if real users arrive
+### Phase 3 — Only if real users arrive
 *Don't do this early — it costs money and complexity you don't need yet*
 
 | Task | Why |
@@ -462,22 +453,3 @@ python3 Test_sagemaker.py /path/to/garment.jpg
 
 ---
 
-## Future Scope — Deployment Roadmap
-
-### Phase 1 — Harden what's already built
-1. **AWS Secrets Manager** — move JWT secret and API keys out of `.env` into AWS-managed secure storage. If the server is ever compromised, keys can be revoked in seconds.
-2. **CloudWatch alerts** — get notified on email/Slack when CPU spikes, memory runs low, or error rates jump — before users notice.
-3. **Alembic migrations** — right now schema changes mean manually editing the database. Alembic tracks every schema change like Git tracks code — safe, versioned, and CI/CD-deployable.
-4. **Better documentation** — API docs via Swagger (already built into FastAPI at `/docs`), plus a proper `CONTRIBUTING.md` and `env.example` with all required variables explained.
-
-### Phase 2 — Scale the data layer
-1. **Migrate SQLite → RDS Postgres** — SQLite is a single file on disk, fine for development but can't handle concurrent writes. RDS is a managed cloud database built for real traffic with automatic backups and failover.
-2. **Redis + background jobs** — move slow tasks (AI tagging, email sending, backup jobs) off the request thread into a background queue using Celery + Redis. Faster API responses, no timeout errors.
-3. **Improve observability** — structured JSON logging, request tracing with AWS X-Ray, and a dashboard showing real-time error rates, latency, and SageMaker inference costs.
-
-### Phase 3 — Only if real users arrive
-1. **ALB (Application Load Balancer)** — distribute traffic across multiple EC2 instances instead of one server handling everything.
-2. **Auto Scaling** — automatically spin up more servers under heavy load and shut them down when traffic drops. Pay only for what you use.
-3. **ECS / EKS** — replace manual `docker run` with AWS-managed container orchestration. Handles restarts, rollbacks, and zero-downtime deploys automatically.
-4. **AWS WAF** — network-level firewall on CloudFront that blocks bots, DDoS attacks, and bad IPs before they reach EC2. (~$5/mo, currently handled at app layer by slowapi)
-5. **Blue-green deployments** — run a second copy of the app, switch traffic to it, then shut down the old one. Zero downtime on every deploy.
