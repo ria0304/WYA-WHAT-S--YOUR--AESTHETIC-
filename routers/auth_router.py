@@ -1,8 +1,7 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from datetime import datetime
 import uuid
 import logging
-
 from database import get_db
 from auth_utils import hash_password, verify_password, create_access_token
 from schemas import UserRegister, UserLogin
@@ -11,10 +10,9 @@ from rate_limiter import limiter
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 logger = logging.getLogger("uvicorn.error")
 
-
 @router.post("/register")
 @limiter.limit("3/minute")
-async def register(request: Request, data: UserRegister):
+async def register(request: Request, response: Response, data: UserRegister):
     conn = get_db()
     try:
         user_id = str(uuid.uuid4())
@@ -34,10 +32,9 @@ async def register(request: Request, data: UserRegister):
     finally:
         conn.close()
 
-
 @router.post("/login")
 @limiter.limit("5/minute")
-async def login(request: Request, credentials: UserLogin):
+async def login(request: Request, response: Response, credentials: UserLogin):
     conn = get_db()
     user = conn.execute("SELECT * FROM users WHERE email = ?", (credentials.email,)).fetchone()
     conn.close()
