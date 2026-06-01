@@ -14,32 +14,11 @@
 
 **An AI-powered full-stack fashion web app** that helps users discover, analyze, and refine their personal style through computer vision, style profiling, and wardrobe intelligence.
 
-🔗 **Live:** [dsbml6kwxecah.cloudfront.net](https://dsbml6kwxecah.cloudfront.net)
+> ⚠️ **Status:** The EC2 backend is currently disabled to pause AWS costs. The frontend is still live on CloudFront, but API features (wardrobe, AI tagging, outfit matching, etc.) are offline. To run the full app, see [Run Locally](#run-locally) or [Docker Deployment](#docker-deployment-ec2).
 
 </div>
 
 ---
-## 📜 License
-
-**Copyright © 2024 Ria S**
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-**Full license text:** [GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html)
-
----
-
 
 ## Architecture
 
@@ -76,7 +55,7 @@ flowchart TD
 
 **Deployment**
 - Frontend → S3 + CloudFront (HTTPS, CDN cached, global)
-- Backend → Docker on EC2 `c7i-flex.large` (ap-south-1), Elastic IP `65.1.104.57`
+- Backend → Docker on EC2 `c7i-flex.large` (ap-south-1), Elastic IP `65.1.104.57` — **currently stopped**
 - CI/CD → GitHub Actions (push to `main` → auto build + deploy + CloudFront invalidation)
 
 ---
@@ -169,11 +148,31 @@ flowchart TD
 - Dockerized, deployed on AWS EC2 (ap-south-1)
 
 **AWS Infrastructure**
-- EC2 `c7i-flex.large` (ap-south-1) — Docker backend, Elastic IP `65.1.104.57`
+- EC2 `c7i-flex.large` (ap-south-1) — Docker backend, Elastic IP `65.1.104.57` — **stopped**
 - S3 + CloudFront — static frontend with HTTPS and CDN caching
 - CloudFront `/api/*` behavior — routes backend traffic through HTTPS (no mixed content)
-- SageMaker endpoint `wya-fashionclip-serverless` on `ml.m5.xlarge` — InService
+- SageMaker endpoint `wya-fashionclip-serverless` on `ml.m5.xlarge`
 - IAM role `wya-sagemaker-role` via EC2 instance profile — no API keys needed
+
+---
+
+## Deployment Status
+
+| Component | Status |
+|---|---|
+| Frontend (S3 + CloudFront) | ✅ Live |
+| Backend (Docker on EC2) | ⏸️ Stopped (cost pause) |
+| Elastic IP (fixed, survives reboots) | ✅ `65.1.104.57` (reserved) |
+| HTTPS end-to-end (no mixed content) | ✅ Via CloudFront |
+| Database (SQLite, persistent volume) | ⏸️ Paused with EC2 |
+| SageMaker FashionCLIP endpoint | ⏸️ Stopped |
+| CI/CD (GitHub Actions) | ✅ Configured |
+| Rate limiting (slowapi) | ✅ AI endpoints protected |
+| Health checks (`/health`, `/health/ready`) | ✅ Implemented |
+| Automated daily backups (S3) | ⏸️ Paused with EC2 |
+| Server watchdog (auto-recovery) | ✅ Configured (activates on EC2 start) |
+
+> To bring the backend back online: start the EC2 instance, Docker will auto-restart via `--restart unless-stopped`, and the SageMaker endpoint can be reactivated with `python3 deploy_fashionclip.py`.
 
 ---
 
@@ -190,167 +189,6 @@ AI endpoints are protected with [slowapi](https://github.com/laurentS/slowapi) t
 | `POST /api/ai/green-audit` | 20 / minute |
 
 Standard CRUD endpoints (`/api/wardrobe`, `/api/auth`, `/api/outfits`, etc.) are not rate limited.
-
----
-
-## Deployment Status
-
-| Component | Status |
-|---|---|
-| Frontend (S3 + CloudFront) | ✅ Live |
-| Backend (Docker on EC2) | ✅ Live |
-| Elastic IP (fixed, survives reboots) | ✅ `65.1.104.57` |
-| HTTPS end-to-end (no mixed content) | ✅ Via CloudFront |
-| Database (SQLite, persistent volume) | ✅ Live |
-| SageMaker FashionCLIP endpoint | ✅ InService |
-| CI/CD (GitHub Actions) | ✅ Auto-deploy on push |
-| Rate limiting (slowapi) | ✅ AI endpoints protected |
-| Health checks (`/health`, `/health/ready`) | ✅ Live |
-| Automated daily backups (S3) | ✅ Running via cron |
-| Server watchdog (auto-recovery) | ✅ Running via systemd |
-| Garment auto-tagging (category) | ✅ Working |
-| Color detection (KMeans) | ✅ Working |
-| Fabric classifier | ✅ Working |
-| Background removal | ✅ Working |
-| Login / Wardrobe / Style DNA | ✅ Working |
-| Outfit Matcher | ✅ Working |
-| Weather Styling | ✅ Working |
-| Green Score | ✅ Working |
-| Aesthetic Aura | ✅ Working |
-
----
-
-## Project Structure
-
-```
-WYA-Whats-Your-Aesthetic/
-│
-├── views/                        # React page components
-│   ├── AIMatcher.tsx             # Outfit suggestion UI
-│   ├── AestheticAura.tsx         # Shareable style card
-│   ├── Closet.tsx                # Wardrobe upload + autotag UI
-│   ├── Curate.tsx                # Outfit curation view
-│   ├── Dashboard.tsx
-│   ├── Evolution.tsx             # Style evolution tracker
-│   ├── GreenScore.tsx            # Sustainability score view
-│   ├── Login.tsx                 # Auth / login page
-│   ├── Profile.tsx
-│   ├── ScanLook.tsx              # Scan & identify a look
-│   ├── StyleQuiz.tsx             # Aesthetic quiz
-│   ├── TheArchive.tsx            # Archived wardrobe items
-│   ├── VacationShop.tsx          # Vacation packer / trip curation
-│   └── Weather.tsx               # Weather-based outfit view
-│
-├── routers/                      # FastAPI route modules
-│   ├── __init__.py
-│   ├── Recommend_router.py       # /api/recommend — personalised recommendations
-│   ├── ai_router.py              # /api/ai — fabric-scan, outfit-match, weather, gap
-│   ├── auth_router.py            # /api/auth — login, register
-│   ├── health_router.py          # /api/health — liveness, readiness, build info
-│   ├── outfit_router.py          # /api/outfits — save, wear tracking, history
-│   ├── style_router.py           # /api/style — DNA, aura, evolution, dashboard
-│   ├── user_router.py            # /api/user — profile, preferences, notifications
-│   └── wardrobe_router.py        # /api/wardrobe — CRUD, remove-bg, archive
-│
-├── services/                     # Backend + frontend service modules
-│   ├── __init__.py
-│   ├── api.ts                    # Frontend API client (TypeScript)
-│   ├── brand_auditor.py          # Brand sustainability scoring
-│   ├── color_matcher.py          # Color harmony engine
-│   ├── computer_vision.py        # Garment detection, masking, color, pattern
-│   ├── data_loader.py            # Data loading + preprocessing helpers
-│   ├── email_service.py
-│   ├── fabric_classifier.py      # Rule-based fabric inference engine
-│   ├── gap_analyzer.py           # Wardrobe gap detection
-│   ├── gemini.ts                 # Gemini AI integration (TypeScript)
-│   ├── localML.ts                # Local ML inference helpers (TypeScript)
-│   ├── notification_service.py
-│   ├── outfit_generator.py       # Outfit + gap analysis
-│   ├── style_profile.py          # Style DNA extraction
-│   ├── trip_curator.py           # Vacation packing curation
-│   └── weather_service.py        # Real-time weather + outfit pairing
-│
-├── tests/                        # Pytest test suite
-│   ├── __init__.py
-│   ├── conftest.py               # Shared fixtures, temp DB, test client
-│   ├── test_auth.py              # Auth tests (15 tests)
-│   ├── test_health.py            # Health endpoint tests (10 tests)
-│   ├── test_outfits.py           # Outfit + rate limiting tests (10 tests)
-│   └── test_wardrobe.py          # Wardrobe CRUD tests (12 tests)
-│
-├── .github/workflows/
-│   └── deploy.yml                # CI/CD — build, deploy, CloudFront invalidation
-│
-├── data/                         # JSON reference data
-│   ├── brand_score.json          # Brand sustainability scores
-│   ├── category_map.json         # Garment category mappings
-│   ├── color_dictionary.json     # Named color reference
-│   ├── color_harmony.json        # Color pairing rules
-│   ├── country_to_region.json    # Country → region lookup
-│   ├── fashion_data.json         # Fashion reference dataset
-│   ├── global_chains.json        # Global fashion chain data
-│   ├── local_indicators.json     # Local/sustainable brand indicators
-│   ├── metadata.json             # App metadata
-│   ├── regional_items.json       # Region-specific clothing items
-│   └── weather_codes.json        # WMO weather code → description map
-│
-├── App.tsx                       # Root React component + routing
-├── index.tsx                     # React entry point
-├── index.html                    # Vite HTML shell
-├── types.ts                      # Shared TypeScript type definitions
-├── vite.config.ts                # Vite build config
-├── tsconfig.json                 # TypeScript compiler config
-├── package.json                  # Frontend dependencies + scripts
-├── manifest.json                 # PWA manifest
-├── sw.js                         # Service worker (push notifications + offline)
-├── icon-192.png                  # PWA icon (192×192)
-├── icon-512.png                  # PWA icon (512×512)
-│
-├── ai_model.py                   # AI orchestrator (autotag, suggestions, aura)
-├── ai_matcher.py                 # Advanced similarity matching engine
-├── auth_utils.py                 # JWT authentication
-├── backup.py                     # Automatic daily S3 backup (cron job on EC2)
-├── database.py                   # SQLite schema + helpers
-├── Embedding_store.py            # FAISS index manager for semantic recommendations
-├── logger.py                     # Centralised logging config
-├── main.py                       # FastAPI entry point + router registration
-├── rate_limiter.py               # slowapi limiter instance + shared rate limit config
-├── schemas.py                    # Pydantic request/response schemas
-├── watchdog.py                   # Server watchdog — restarts container if unresponsive
-│
-├── deploy_fashionclip.py         # SageMaker endpoint deployment script
-├── Test_sagemaker.py             # SageMaker connectivity + inference diagnostics
-│
-├── requirements.txt              # Python dependencies
-├── nixpacks.toml                 # Nixpacks build config (alternative deploy target)
-├── env.example                   # Environment variable template
-├── Dockerfile                    # Docker image for backend
-├── .dockerignore
-├── .gitignore
-├── pytest.ini                    # Pytest configuration
-├── TECH_STACK.md                 # Detailed tech stack notes
-└── LICENSE                       # GNU GPL v3.0
-```
-
----
-
-## Testing
-
-**47 tests** covering auth, wardrobe CRUD, health endpoints, outfit generation, and AI rate limiting.
-
-```bash
-pip install pytest httpx
-pytest
-```
-
-| File | Tests | Coverage |
-|---|---|---|
-| `test_auth.py` | 15 | Register, login, duplicates, missing fields, token validation |
-| `test_wardrobe.py` | 12 | CRUD, auth enforcement, cross-user isolation |
-| `test_health.py` | 10 | Liveness, readiness, DB check, build info |
-| `test_outfits.py` | 10 | Outfit CRUD, rate limit enforcement (429) |
-
-Tests use a temporary SQLite database — your real database is never touched.
 
 ---
 
@@ -436,11 +274,112 @@ python3 Test_sagemaker.py /path/to/garment.jpg
 
 ---
 
+## Testing
+
+**47 tests** covering auth, wardrobe CRUD, health endpoints, outfit generation, and AI rate limiting.
+
+```bash
+pip install pytest httpx
+pytest
+```
+
+| File | Tests | Coverage |
+|---|---|---|
+| `test_auth.py` | 15 | Register, login, duplicates, missing fields, token validation |
+| `test_wardrobe.py` | 12 | CRUD, auth enforcement, cross-user isolation |
+| `test_health.py` | 10 | Liveness, readiness, DB check, build info |
+| `test_outfits.py` | 10 | Outfit CRUD, rate limit enforcement (429) |
+
+Tests use a temporary SQLite database — your real database is never touched.
+
+---
+
+## Project Structure
+
+```
+WYA-Whats-Your-Aesthetic/
+│
+├── views/                        # React page components
+│   ├── AIMatcher.tsx             # Outfit suggestion UI
+│   ├── AestheticAura.tsx         # Shareable style card
+│   ├── Closet.tsx                # Wardrobe upload + autotag UI
+│   ├── Curate.tsx                # Outfit curation view
+│   ├── Dashboard.tsx
+│   ├── Evolution.tsx             # Style evolution tracker
+│   ├── GreenScore.tsx            # Sustainability score view
+│   ├── Login.tsx                 # Auth / login page
+│   ├── Profile.tsx
+│   ├── ScanLook.tsx              # Scan & identify a look
+│   ├── StyleQuiz.tsx             # Aesthetic quiz
+│   ├── TheArchive.tsx            # Archived wardrobe items
+│   ├── VacationShop.tsx          # Vacation packer / trip curation
+│   └── Weather.tsx               # Weather-based outfit view
+│
+├── routers/                      # FastAPI route modules
+│   ├── Recommend_router.py       # /api/recommend — personalised recommendations
+│   ├── ai_router.py              # /api/ai — fabric-scan, outfit-match, weather, gap
+│   ├── auth_router.py            # /api/auth — login, register
+│   ├── health_router.py          # /api/health — liveness, readiness, build info
+│   ├── outfit_router.py          # /api/outfits — save, wear tracking, history
+│   ├── style_router.py           # /api/style — DNA, aura, evolution, dashboard
+│   ├── user_router.py            # /api/user — profile, preferences, notifications
+│   └── wardrobe_router.py        # /api/wardrobe — CRUD, remove-bg, archive
+│
+├── services/                     # Backend + frontend service modules
+│   ├── api.ts                    # Frontend API client (TypeScript)
+│   ├── brand_auditor.py          # Brand sustainability scoring
+│   ├── color_matcher.py          # Color harmony engine
+│   ├── computer_vision.py        # Garment detection, masking, color, pattern
+│   ├── fabric_classifier.py      # Rule-based fabric inference engine
+│   ├── gap_analyzer.py           # Wardrobe gap detection
+│   ├── outfit_generator.py       # Outfit + gap analysis
+│   ├── style_profile.py          # Style DNA extraction
+│   ├── trip_curator.py           # Vacation packing curation
+│   └── weather_service.py        # Real-time weather + outfit pairing
+│
+├── tests/                        # Pytest test suite
+│   ├── conftest.py               # Shared fixtures, temp DB, test client
+│   ├── test_auth.py
+│   ├── test_health.py
+│   ├── test_outfits.py
+│   └── test_wardrobe.py
+│
+├── .github/workflows/
+│   └── deploy.yml                # CI/CD pipeline
+│
+├── data/                         # JSON reference data
+│   ├── brand_score.json
+│   ├── category_map.json
+│   ├── color_dictionary.json
+│   ├── color_harmony.json
+│   ├── fashion_data.json
+│   └── weather_codes.json
+│
+├── ai_model.py                   # AI orchestrator (autotag, suggestions, aura)
+├── ai_matcher.py                 # Advanced similarity matching engine
+├── auth_utils.py                 # JWT authentication
+├── backup.py                     # Automatic daily S3 backup
+├── database.py                   # SQLite schema + helpers
+├── main.py                       # FastAPI entry point + router registration
+├── rate_limiter.py               # slowapi limiter instance
+├── schemas.py                    # Pydantic request/response schemas
+├── watchdog.py                   # Server watchdog — restarts container if unresponsive
+│
+├── deploy_fashionclip.py         # SageMaker endpoint deployment script
+├── Test_sagemaker.py             # SageMaker connectivity diagnostics
+│
+├── requirements.txt
+├── Dockerfile
+├── env.example
+└── LICENSE                       # GNU GPL v3.0
+```
+
 ---
 
 ## Future Scope
 
 ### Features
+
 | Feature | Why |
 |---|---|
 | Outfit rating & feedback | Users rate AI outfits so recommendations improve over time |
@@ -452,37 +391,42 @@ python3 Test_sagemaker.py /path/to/garment.jpg
 | React Native app | Proper mobile app — camera access makes garment uploads much easier |
 | Barcode scanner | Scan a clothing tag in-store to check if it fits your aesthetic before buying |
 
----
-
 ### Deployment Roadmap
 
 #### Phase 1 — Harden what's already built
-*Things worth doing now while the codebase is still small*
 
 | Task | What it means |
 |---|---|
-| AWS Secrets Manager | Move `SECRET_KEY` and API keys out of `.env` into AWS-managed storage — safer, rotatable, won't leak if the repo is ever exposed |
-| CloudWatch alerts | Get an email or Slack ping when CPU spikes, memory runs low, or error rate jumps — before users notice |
-| Alembic migrations | Track every database schema change like Git tracks code — safe, versioned, deployable through CI/CD |
-| Staging environment | A second EC2 that mirrors production — test every push there before it goes live |
+| AWS Secrets Manager | Move `SECRET_KEY` and API keys out of `.env` into AWS-managed storage |
+| CloudWatch alerts | Get notified when CPU spikes, memory runs low, or error rate jumps |
+| Alembic migrations | Track every database schema change like Git tracks code |
+| Staging environment | A second EC2 that mirrors production for pre-deploy testing |
 
 #### Phase 2 — Scale the data layer
-*When the app has regular usage*
 
 | Task | What it means |
 |---|---|
-| SQLite → RDS Postgres | SQLite is a single file on disk — it breaks under concurrent writes. RDS handles real traffic, has automatic backups, and won't corrupt on a bad restart |
-| Redis caching | Store wardrobe and style profile data in memory so the database isn't hit on every request |
-| Celery background jobs | Move slow tasks (SageMaker calls, emails, backups) off the main request thread — faster API, no timeout errors |
-| Structured observability | Centralised logs + metrics dashboard so you can see exactly what the app is doing in real time |
+| SQLite → RDS Postgres | Handles real concurrent traffic with automatic backups |
+| Redis caching | Store wardrobe and style profile data in memory to reduce DB load |
+| Celery background jobs | Move slow tasks (SageMaker calls, emails, backups) off the main thread |
+| Structured observability | Centralised logs + metrics dashboard |
 
 #### Phase 3 — Only if real users arrive
-*Implemented only when production traffic justifies horizontal scaling.*
 
 | Task | What it means |
 |---|---|
-| ALB + Auto Scaling | Distribute traffic across multiple EC2 instances and spin up more servers automatically under load |
-| ECS / Docker orchestration | Replace manual `docker run` with AWS-managed containers — zero-downtime deploys, auto-restarts, rollback on bad deploy |
-| AWS WAF | Network-level firewall on CloudFront — blocks bots, DDoS, bad IPs before they reach EC2 (~$5/mo, currently handled at app layer by slowapi) |
-| Blue-green deployments | Run two identical environments, switch traffic between them — deploy with zero downtime |
-| Multi-region | Add a second AWS region for users outside Mumbai for faster response times |
+| ALB + Auto Scaling | Distribute traffic across multiple EC2 instances automatically |
+| ECS / Docker orchestration | AWS-managed containers with zero-downtime deploys |
+| AWS WAF | Network-level firewall on CloudFront for bot/DDoS protection |
+| Blue-green deployments | Zero-downtime deploys via two mirrored environments |
+| Multi-region | Add a second AWS region for users outside Mumbai |
+
+---
+
+## License
+
+**Copyright © 2024 Ria S**
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+**Full license text:** [GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html)
